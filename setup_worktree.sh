@@ -20,6 +20,8 @@ link() {  # usage: link <absolute source path> <path in repo>
 # repo-relative paths (data/gugak_ensemble_71955/ingest/...).
 link "$STORAGE/nia-gugak/gugak_ensemble_71955" data/gugak_ensemble_71955
 link "$STORAGE/ngc-gugak" data/gugak_solo_71470
+# Six dragon dataset: MusicXML only, not referenced by the separation manifests
+link "$STORAGE/gugak-transcription/jeongganbo-musicxml" data/jeongganbo_musicxml
 # The separation repo's manifests; that repo owns and commits them, read-only here
 link "$SEPARATION_REPO/manifests/parquet" manifests/separation
 
