@@ -86,7 +86,10 @@
 - **Solo dataset** (AI Hub 71470, solo phrase clips): `data/gugak_solo_71470/` → `~/storage/ngc-gugak`.
   - `ingest/` (clips) · `midi/` (one `.mid` per clip, 9,945) · `labels/` (per-clip JSON).
   - Linked because the separation manifests reference it.
-- **Six dragon dataset** (MusicXML/MIDI): not on disk yet.
+- **Six dragon dataset** (MusicXML converted from jeongganbo): `data/jeongganbo_musicxml/`
+  → `~/storage/gugak-transcription/jeongganbo-musicxml`.
+  - 91 `.musicxml` files, one per piece: `<piece>_<instruments>.musicxml`. No MIDI.
+  - From `musicxml_dataset.zip` on danbinaerin.com/Jeongganbo_dataset, kept alongside.
 - **Manifests** (`manifests/separation/`): `source_manifest_v2.parquet` = one row per ingested
   file of both datasets, keyed by `file_id`; `eval_manifest.parquet` = the frozen song split.
 
@@ -120,4 +123,6 @@ Verified in the separation repo; detail → its `CLAUDE.md`.
   `ingest/` exists (checked 2026-10-22).
 
 ### Six dragon dataset
-_(none yet)_
+- **Not fully proofread** (the dataset page says so): MusicXML was converted from
+  OMR'd jeongganbo by rules.
+- **Research use only, with citation**: cite Kim et al. 2025 (JOCCH). The repo has no license file.
