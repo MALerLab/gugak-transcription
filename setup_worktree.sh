@@ -26,4 +26,11 @@ link "$SEPARATION_REPO/manifests/parquet" manifests/separation
 # 2. Python env (.venv), exactly as uv.lock says
 uv sync --frozen  # --frozen: install the lockfile as-is, never update it
 
+# 3. Strip notebook outputs on commit: .gitattributes names the filter, this defines it in git config.
+#    Worktrees share one git config, and the filter stores this checkout's absolute .venv path,
+#    so only the first checkout installs it; later worktrees keep pointing at that one.
+if ! git config --get filter.nbstripout.clean > /dev/null; then
+  uv run --frozen nbstripout --install
+fi
+
 echo "worktree ready"
