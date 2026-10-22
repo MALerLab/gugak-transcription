@@ -1,0 +1,60 @@
+# --- Python / uv ---
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.ruff_cache/
+.pytest_cache/
+
+# --- Secrets / local env (wandb target) ---
+.env
+
+# --- Data: symlinks to ~/storage, made by setup_worktree.sh ---
+/data/
+
+# --- Manifests: linked in from the separation repo's main checkout by setup_worktree.sh;
+#     that repo owns and commits them ---
+/manifests/separation
+
+# --- Audio, MIDI and scores are data: never tracked (public repo) ---
+*.wav
+*.flac
+*.mp3
+*.mid
+*.midi
+*.musicxml
+*.mxl
+
+# --- Experiment outputs ---
+wandb/
+checkpoints/
+outputs/
+*.log
+*.ckpt
+*.pt
+*.pth
+# `checkpoints/` matches directories only; a checkpoints symlink into ~/storage is a file to git
+experiments/**/checkpoints
+
+# --- CSVs are regenerable twins; parquet is what gets tracked ---
+*.csv
+
+# --- One-off / temporary scripts (promote to src/ once reused) ---
+/scripts/
+
+# --- Generated figures ---
+figs/
+
+# --- Personal scratch notes, anywhere in the tree ---
+MEMO.md
+
+# --- Papers live in their own private repo ---
+/paper/
+
+# --- OS / editor ---
+.DS_Store
+
+# --- Claude Code: per-machine settings; .claude/settings.json (shared) stays tracked ---
+.claude/settings.local.json
+
+# NOTE: uv.lock IS committed (reproducible env) — do not ignore it.
