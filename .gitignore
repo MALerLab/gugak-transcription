@@ -56,5 +56,7 @@ MEMO.md
 
 # --- Claude Code: per-machine settings; .claude/settings.json (shared) stays tracked ---
 .claude/settings.local.json
+# CLAUDE.md is per-checkout and kept out of the public repo; project facts live in PROJECT.md
+/CLAUDE.md
 
 # NOTE: uv.lock IS committed (reproducible env) — do not ignore it.
