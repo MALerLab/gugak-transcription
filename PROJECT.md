@@ -73,6 +73,11 @@
   per-instrument WAVs).
 - **mix** — audio of several instruments together. The separation dataset's publisher
   `master` is a mix, but not the sum of its stems (see gotchas).
+- **warping path** — DTW's output: matched (score frame, audio frame) pairs, used as a
+  score-time → audio-time lookup. Per-song or per-stem.
+- **per-song alignment** — one warping path from a partial sum-stem (only the stems that have
+  a score part), applied to every part.
+- **per-stem alignment** — one warping path per stem, from that stem and its own part only.
 
 ## Invariants
 - Reuse the separation repo's frozen song split (`manifests/separation/eval_manifest.parquet`);
