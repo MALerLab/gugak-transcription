@@ -7,6 +7,7 @@ cd "$(git rev-parse --show-toplevel)"  # always run from the worktree's root fol
 
 STORAGE="$HOME/storage"
 SEPARATION_REPO="$HOME/userdata/repos/gugak_stem_separation"  # its main checkout, not a worktree
+MAIN_CHECKOUT="$(git worktree list --porcelain | awk 'NR==1 {print $2}')"  # git lists the main checkout first
 
 # 1. Untracked paths every worktree needs, linked in from outside the repo
 link() {  # usage: link <absolute source path> <path in repo>
@@ -24,6 +25,8 @@ link "$STORAGE/ngc-gugak" data/gugak_solo_71470
 link "$STORAGE/gugak-transcription/jeongganbo-musicxml" data/jeongganbo_musicxml
 # The separation repo's manifests; that repo owns and commits them, read-only here
 link "$SEPARATION_REPO/manifests/parquet" manifests/separation
+# CLAUDE.md is untracked (public repo); every worktree links to the main checkout's copy
+if [ "$PWD" != "$MAIN_CHECKOUT" ]; then link "$MAIN_CHECKOUT/CLAUDE.md" CLAUDE.md; fi
 
 # 2. Python env (.venv), exactly as uv.lock says
 uv sync --frozen  # --frozen: install the lockfile as-is, never update it
