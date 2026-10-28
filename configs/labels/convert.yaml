@@ -1,0 +1,23 @@
+# MusicXML → note table → MIDI (src/labels/convert.py)
+
+musicxml_dir: data/jeongganbo_musicxml
+
+# Six dragon filenames list their parts in score order: <piece>_<part>_<part>...musicxml
+part_names: [daegeum, piri, haegeum, ajaeng, gayageum, geomungo]
+
+# Grace notes (acciaccaturas, the 시김새 ornaments) have no written duration.
+# They get a fixed length in seconds, taken from the start of their main note.
+grace_seconds: 0.08
+
+# Velocity written for every MIDI note (MusicXML has no dynamics)
+velocity: 80
+
+# General MIDI stand-ins for rendering, 0-based program numbers (pretty_midi convention).
+# East Asian GM instruments where one fits, else plucked → plucked, bowed → bowed, similar register.
+gm_programs:
+  daegeum: 77   # Shakuhachi
+  piri: 111     # Shenai
+  haegeum: 110  # Fiddle
+  ajaeng: 42    # Cello
+  gayageum: 107 # Koto
+  geomungo: 106 # Shamisen
