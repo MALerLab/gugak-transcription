@@ -1,0 +1,5 @@
+# Note-level scoring against reference MIDI (mir_eval), used by src/evaluate/transcription.py
+onset_tolerance_seconds: 0.05  # MIREX standard
+pitch_tolerance_cents: 50.0    # MIREX standard
+offset_ratio: 0.2              # MIREX standard, for the onset+offset score
+lenient_onset_tolerance_seconds: 0.1  # extra onset-only score: gugak attacks (breathy 대금, bowed swells) are soft

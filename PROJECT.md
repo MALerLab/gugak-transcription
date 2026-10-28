@@ -52,9 +52,27 @@
 - Check: `git remote -v` → 1 fetch line, 2 push lines.
 
 ## Layout rules
-- `src/` subpackages: `data/` (`audio.py`: audio I/O + DSP primitives, copied from the
-  separation repo) · `launch/` (`no_thp_exec.py`: the sym8 THP wrapper).
-- `configs/<subpackage>/` mirrors `src/<subpackage>/` — no hardcoded parameters in `src/`.
+- `src/` is a library + thin commands, organised by job, not by strand:
+  - `audio/` (read, resample; measurements copied from the separation repo) · `datasets/`
+    (finding files: separation, solo, six dragon)
+  - `notes/` (the note table + round-trip conversions: MusicXML, MIDI) · `features/`
+    (computed: f0, chroma, onsets, tuning)
+  - `align/` (score ↔ audio) · `transcribe/` (→ note table) · `evaluate/` · `render/`
+  - `pipelines/` (commands, `python -m src.pipelines.<name> --config <run config>`) · `launch/`
+    (`make_run_config.py`, `no_thp_exec.py`)
+- Conversion = same data in a new format, convertible back → `notes/`. Computed from the
+  data = feature → `features/`.
+- Imports only point down: pipelines → align / transcribe / evaluate / render → notes /
+  features → audio / datasets. Nothing imports a command (`pipelines/common.py` is shared helpers).
+- `configs/` = recipes, git-tracked, edited in place (no version suffixes). No hardcoded
+  parameters in `src/`.
+  - `configs/<package>/<module>.yaml` ↔ `src/<package>/<module>.py`: that module's defaults.
+  - `configs/pipelines/<command>.yaml`: which module recipes the command `uses`, its `run`
+    settings, and `overrides` of module defaults.
+- A run never reads `configs/`. `python -m src.launch.make_run_config <command> <exp>` writes
+  the full, resolved config to `experiments/<exp>/configs/<command>.yaml`; tweak it there, then
+  the command reads only that file.
+- Seeds: every random step that takes a seed has one in its recipe; start at 42, then 43, 44….
 - `scripts/` = one-off / temporary, **untracked**. May hardcode values; its settings never
   enter `configs/`. Used twice or proven useful → review and promote to `src/`.
 - `manifests/separation/` = link to the separation repo's `manifests/parquet/` in its `main`
@@ -64,7 +82,8 @@
 - `storage/` = link to `~/storage/gugak-transcription/`, made by `setup_worktree.sh`, untracked:
   datasets, soundfonts, experiment artifacts.
 - `experiments/`: `exp<NNN>_<YYMMDD>_<rest>`.
-- `experiments/<exp>/` tracks only `REPORT.md` + git-state files. Every output (tables,
+- `experiments/<exp>/` tracks only `REPORT.md`, git-state files and `configs/` (the run
+  configs each command ran with). Every output (tables,
   caches, audio, MIDI, logs) lives in `storage/experiments/<exp>/`, reached through the
   folder's untracked `artifacts` symlink. Tables go in its `tables/`. Never commit artifacts.
 - The repo is public: audio, MIDI, MusicXML and checkpoints are never committed.
@@ -72,8 +91,16 @@
 ## Vocabulary (one word per concept, in code and docs)
 - **MusicXML** — the score files strand-a's labels are made from. Never called MIDI.
 - **MIDI** — note-event files (`.mid`). Never a synonym for MusicXML.
+- **note table** — one row per note: the most complete record of the notes. Everything known
+  about a note is a column (`is_grace` today, more marks later); MIDI holds a slice of it.
+  Any length (a score, a song, a stem), split and concatenated as needed. Time in seconds;
+  quarter-note beats only inside alignment, before the warp. Never "note df". Strand B's
+  `Note` objects (time in f0 frames) are replaced by it in the refactor.
 - **jeongganbo** — 정간보, the traditional Korean grid notation. Never a synonym for
   MusicXML or MIDI.
+- **instrument names** — English in code, configs and tables (`daegeum`, = the MusicXML part
+  names). The datasets' Korean names are translated on reading (`configs/datasets/instruments.yaml`).
+  Other dataset values (song ids, titles, genres, piece names) stay Korean for now.
 - **stem** — one instrument's isolated audio track of one song (the separation dataset's
   per-instrument WAVs).
 - **mix** — audio of several instruments together. The separation dataset's publisher

@@ -1,0 +1,3 @@
+# Tuning from an f0 curve (estimate_tuning_offset), used by src/features/tuning.py
+stable_slope_cents_per_frame: 5.0   # only frames whose pitch moves less than this count
+smoothing_cents: 5.0                # circular Gaussian on the 1-cent histogram of (cents mod 100)

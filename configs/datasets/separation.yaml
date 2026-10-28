@@ -1,0 +1,20 @@
+# Separation dataset (AI Hub 71955), used by src/datasets/separation.py
+metadata_csv: data/gugak_ensemble_71955/metadata.csv
+ingest_dir: data/gugak_ensemble_71955/ingest
+eval_manifest: manifests/separation/eval_manifest.parquet
+source_manifest: manifests/separation/source_manifest_v2.parquet
+
+# Stem names on disk are Korean; configs/datasets/instruments.yaml translates them
+
+# list_jeongak_songs: strand A's songs (scored against the six dragon MusicXML)
+jeongak_songs:
+  genre_major: 정악
+
+# pick_stems: strand B's stems
+pick_stems:
+  genre_major: 민속악
+  # 산조 = one melodic instrument + 장구: the cleanest monophonic stems.
+  # 대풍류 = instrumental 민속악 ensemble (the dataset has no 시나위 genre); its stems test heterophony and bleed.
+  genre_subs: [산조, 대풍류]
+  # Melodic instruments only; 장구 / 좌고 are unpitched.
+  instruments: [daegeum, piri, haegeum, ajaeng, gayageum, geomungo]

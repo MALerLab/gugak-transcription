@@ -1,0 +1,11 @@
+# Run recipe for src/pipelines/match_scores.py
+# uses: module recipes merged in (configs/<path>.yaml) · run: this command's own settings
+# overrides: changes to the module recipes for this command
+# src/launch/make_run_config.py turns this into experiments/<exp>/configs/<name>.yaml; the run reads only that.
+uses: [datasets/separation, datasets/instruments, datasets/six_dragon, align/match]
+run:
+  artifacts_dir: ???      # storage/experiments/<exp>, set by make_run_config
+  cache_dir: ${run.artifacts_dir}/cache
+  tables_dir: ${run.artifacts_dir}/tables
+  num_workers: 16
+overrides: {}

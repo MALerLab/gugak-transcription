@@ -1,0 +1,14 @@
+# Alignment-quality numbers, used by src/evaluate/alignment.py
+# (f0 settings in configs/features/f0.yaml, onsets in configs/features/onsets.yaml)
+
+# A note's f0 = median over the voiced frames in the middle of the note
+note_core_fraction: [0.2, 0.8]
+min_note_seconds: 0.15       # shorter notes are skipped for the pitch check
+min_voiced_frames: 3
+pitch_hit_semitones: 0.5     # |f0 − written pitch (after octave/tuning fix)| below this = hit
+
+# Onset F: aligned note starts vs detected onsets
+onset_tolerance_seconds: 0.1
+
+# Chance level: the same notes shifted in time by these offsets (seconds)
+chance_offsets_seconds: [-7.0, -3.0, 3.0, 7.0]

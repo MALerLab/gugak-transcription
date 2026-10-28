@@ -1,0 +1,4 @@
+# Note table timing, used by src/notes/table.py
+# Grace notes (acciaccaturas, the 시김새 ornaments) have no written duration.
+# They get a fixed length in seconds, taken from the start of their main note.
+grace_seconds: 0.08

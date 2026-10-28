@@ -1,0 +1,13 @@
+# Solo dataset (AI Hub 71470) clips used as strand B's answer key, used by src/datasets/solo.py
+source_manifest: manifests/separation/source_manifest_v2.parquet
+labels_dir: data/gugak_solo_71470/labels
+midi_dir: data/gugak_solo_71470/midi
+# Solo genre codes for 민속악 instrumental music (inferred from piece names, the dataset ships no code table):
+# F01 = 민속 풍류 (서도풍류, 취타풍류), F02 = 산조, F03 = 시나위
+genre_codes: [F01, F02, F03]
+# Same melodic instruments as the separation-dataset pick
+instruments: [daegeum, piri, haegeum, ajaeng, gayageum, geomungo]
+# Pieces (not clips) go to dev or test, so no piece is in both.
+# dev tunes the segmentation parameters; test is scored once with the chosen ones.
+dev_fraction: 0.3
+seed: 42                 # exp002 used 0 (its run config keeps it)

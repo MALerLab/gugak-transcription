@@ -1,17 +1,13 @@
-# Listening renders: MIDI → General MIDI stand-in audio, layered over the real stem. Used by src/render/render_midi.py
+# Render MIDI with General MIDI stand-ins and build listening files, used by src/render/render.py
 soundfont: ~/storage/gugak-transcription/soundfonts/MuseScore_General.sf2   # MuseScore General (MIT), better than sym8's TimGM6mb
 sample_rate: 44100
 fluidsynth_gain: 0.5
-excerpt_seconds: 30.0
-# Stand-in General MIDI programs (0-indexed): East Asian GM instruments where one fits, else matched on register and attack
-gm_programs:
-  대금: 77    # Shakuhachi — end-blown bamboo flute, breathy attack
-  피리: 111   # Shenai — double reed, nasal
-  해금: 110   # Fiddle — bowed, high register
-  아쟁: 42    # Cello — bowed, low register (산조아쟁)
-  가야금: 107 # Koto — plucked zither, decaying
-  거문고: 106 # Shamisen — plucked, percussive attack
-# Layered file: both at equal loudness (RMS over audible frames), stem panned left, render right,
-# so the two stay tellable apart while still lining up in time
+
+# write_clip_set (real / render / layered, centred): render scaled to this RMS ratio vs the real audio
+layer_render_to_real_rms: 0.8
+peak_ceiling: 0.95
+target_rms: 0.1          # ≈ −20 dBFS for the real audio of every clip
+
+# write_listening_triplet: stem panned left, render right, at equal loudness (RMS over audible frames)
 layer_pan: 0.35          # 0 = both centred, 1 = hard left / right
 layer_peak_ceiling: 0.95 # scale the layered mix down if it would clip

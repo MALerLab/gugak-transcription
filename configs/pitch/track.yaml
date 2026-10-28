@@ -1,9 +1,0 @@
-# f0 tracking with a pretrained pitch model (torchcrepe), used by src/pitch/track.py
-model: full              # torchcrepe capacity: "full" (22M params) or "tiny"
-decoder: viterbi         # viterbi | weighted_argmax | argmax; viterbi smooths octave jumps
-model_sample_rate: 16000 # CREPE only takes 16 kHz audio; stems are resampled to it
-hop_seconds: 0.01        # one f0 value every 10 ms
-fmin_hz: 50.0            # search range; the widest gugak melodic range we use (거문고 low → 소금 high)
-fmax_hz: 2000.0
-batch_size: 2048         # frames per forward pass
-device: cuda             # cuda | cpu; caller picks the GPU index via CUDA_VISIBLE_DEVICES

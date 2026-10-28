@@ -1,0 +1,18 @@
+# Note table → MIDI, used by src/notes/midi.py
+
+# Velocity for score-side notes (MusicXML has no dynamics); note-ify writes its own per note
+score_velocity: 80
+
+# General MIDI stand-ins, 0-based program numbers (pretty_midi convention).
+# East Asian GM instruments where one fits, else matched on register and attack.
+gm_programs:
+  daegeum: 77   # Shakuhachi — end-blown bamboo flute, breathy attack
+  piri: 111     # Shenai — double reed, nasal
+  haegeum: 110  # Fiddle — bowed, high register
+  ajaeng: 42    # Cello — bowed, low register
+  gayageum: 107 # Koto — plucked zither, decaying
+  geomungo: 106 # Shamisen — plucked, percussive attack
+
+# Pitch bends (f0 detail around each note)
+pitch_bend_range_semitones: 12   # set via RPN 0 so 시김새 bends beyond ±2 semitones fit
+pitch_bend_min_step_cents: 3.0   # write a new bend event only when the bend moves this much

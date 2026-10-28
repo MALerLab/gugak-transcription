@@ -1,0 +1,4 @@
+# Six dragon dataset (MusicXML from jeongganbo), used by src/datasets/six_dragon.py
+musicxml_dir: data/jeongganbo_musicxml
+# Filenames list their parts in score order: <piece>_<part>_<part>...musicxml
+part_names: [daegeum, piri, haegeum, ajaeng, gayageum, geomungo]

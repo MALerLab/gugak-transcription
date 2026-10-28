@@ -1,0 +1,11 @@
+# Instrument names, used by src/datasets/instruments.py.
+# The datasets write instruments in Korean (filenames, manifests, metadata); the code, configs and
+# tables use these English names (= the six dragon MusicXML part names). Translated on reading.
+# Instruments not listed keep no English name and are left out of the pipelines.
+english_names:
+  대금: daegeum
+  피리: piri
+  해금: haegeum
+  아쟁: ajaeng
+  가야금: gayageum
+  거문고: geomungo

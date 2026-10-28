@@ -1,0 +1,15 @@
+# Onset detection, used by src/features/onsets.py
+
+# spectral_flux_onsets: from the waveform (strand A's alignment check)
+spectral_flux:
+  window: 2048
+  hop_seconds: 0.01
+  median_seconds: 0.5    # adaptive threshold: moving median over this span
+  delta: 0.05            # … plus this offset (flux is normalised to max 1)
+  min_gap_seconds: 0.05
+
+# onset_frames: rises in the frame energy curve (note-ify splits repeated notes there)
+energy:
+  rise_db: 4.5           # energy rise that counts as an onset…
+  rise_window_seconds: 0.04  # …within this window
+  min_inter_onset_seconds: 0.08
