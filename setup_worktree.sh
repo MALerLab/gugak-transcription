@@ -25,6 +25,10 @@ link "$STORAGE/ngc-gugak" data/gugak_solo_71470
 link "$STORAGE/gugak-transcription/jeongganbo-musicxml" data/jeongganbo_musicxml
 # This project's own storage folder: experiment artifacts, soundfonts, datasets
 link "$STORAGE/gugak-transcription" storage
+# Each experiment folder reaches its outputs on storage through an `artifacts` link
+for experiment in experiments/exp*/; do
+  link "$STORAGE/gugak-transcription/experiments/$(basename "$experiment")" "${experiment}artifacts"
+done
 # The separation repo's manifests; that repo owns and commits them, read-only here
 link "$SEPARATION_REPO/manifests/parquet" manifests/separation
 # CLAUDE.md is untracked (public repo); every worktree links to the main checkout's copy

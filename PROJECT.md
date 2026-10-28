@@ -19,11 +19,10 @@
 
 ## Project
 - Gugak (traditional Korean music) audio → MIDI transcription.
-- Two strands, each in its own worktree on its own branch:
-  - **strand-a** (`../gugak-transcription-strand-a`, branch `strand-a`): a transcription model
-    trained on labels made from MusicXML, aligned to the separation dataset's stems.
-  - **strand-b** (`../gugak-transcription-strand-b`, branch `strand-b`): f0 pitch tracking on
-    single stems (민속악), no MusicXML.
+- Two strands, merged into `main` on 2026-10-28 (their worktrees and branches are gone):
+  - **strand A**: a transcription model trained on labels made from MusicXML, aligned to the
+    separation dataset's stems (pilot: exp001).
+  - **strand B**: f0 pitch tracking on single stems (민속악), no MusicXML (pilot: exp002).
 - **Separation repo** (sister project): gugak stem separation,
   `~/userdata/repos/gugak_stem_separation` (`MALerLab/gugak-stem-separation`). Read-only from here.
 
