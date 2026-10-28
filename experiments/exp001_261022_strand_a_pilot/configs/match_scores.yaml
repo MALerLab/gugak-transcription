@@ -1,0 +1,133 @@
+# match_scores run config, built from configs/ by src/launch/make_run_config.py
+datasets:
+  separation:
+    metadata_csv: data/gugak_ensemble_71955/metadata.csv
+    ingest_dir: data/gugak_ensemble_71955/ingest
+    eval_manifest: manifests/separation/eval_manifest.parquet
+    source_manifest: manifests/separation/source_manifest_v2.parquet
+    jeongak_songs:
+      genre_major: 정악
+    pick_stems:
+      genre_major: 민속악
+      genre_subs:
+      - 산조
+      - 대풍류
+      instruments:
+      - daegeum
+      - piri
+      - haegeum
+      - ajaeng
+      - gayageum
+      - geomungo
+  instruments:
+    english_names:
+      대금: daegeum
+      피리: piri
+      해금: haegeum
+      아쟁: ajaeng
+      가야금: gayageum
+      거문고: geomungo
+  six_dragon:
+    musicxml_dir: data/jeongganbo_musicxml
+    part_names:
+    - daegeum
+    - piri
+    - haegeum
+    - ajaeng
+    - gayageum
+    - geomungo
+align:
+  match:
+    suite_aliases:
+      관악영산회상: 관악영산회상
+      평조회상: 평조회상
+      현악영산회상: 영산회상
+      천년만세: 천년만세
+    movements:
+    - 상령산
+    - 중령산
+    - 세령산
+    - 가락덜이
+    - 상현도드리
+    - 삼현도드리
+    - 하현도드리
+    - 염불도드리
+    - 타령
+    - 군악
+    - 계면가락도드리
+    - 양청도드리
+    - 우조가락도드리
+    movement_aliases:
+      삼현도드리: 상현도드리
+    piece_aliases:
+      보허자:
+      - 보허자
+      여민락:
+      - 여민락
+      동동:
+      - 동동
+      수제천:
+      - 수제천
+      밑도드리:
+      - 밑도드리
+      만파정식지곡(취타):
+      - 취타 취타
+      - 현악취타 취타
+      절화(길군악):
+      - 취타 길군악
+      - 현악취타 길군악
+      길군악:
+      - 취타 길군악
+      - 현악취타 길군악
+      일승월향(길타령):
+      - 취타 길타령
+      - 현악취타 길타령
+      금전악(별우조타령):
+      - 취타 별우조타령
+      - 현악취타 별우조타령
+    gagok_suites:
+    - 남창우조
+    - 남창계면
+    - 남창반우반계
+    - 여창우조
+    - 여창계면
+    - 여창반우반계
+    gagok_form_aliases:
+      소용: 소용이
+      언락벽사창이: 언락
+    feature_rate: 10
+    cens_smooth_frames: 41
+    cens_downsample: 10
+    quarters_per_second_grid:
+    - 0.25
+    - 0.35
+    - 0.5
+    - 0.7
+    - 1.0
+    - 1.4
+    - 2.0
+    - 2.8
+    - 4.0
+    chroma_shifts_candidates:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    chroma_shifts_null:
+    - 0
+    min_null_margin_high: 0.03
+    min_null_margin_medium: 0.01
+    min_runner_up_margin: 0.015
+run:
+  artifacts_dir: storage/experiments/exp001_261022_strand_a_pilot
+  cache_dir: storage/experiments/exp001_261022_strand_a_pilot/cache
+  tables_dir: storage/experiments/exp001_261022_strand_a_pilot/tables
+  num_workers: 16

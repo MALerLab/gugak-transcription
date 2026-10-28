@@ -1,0 +1,32 @@
+# pick_stems run config, built from configs/ by src/launch/make_run_config.py
+datasets:
+  separation:
+    metadata_csv: data/gugak_ensemble_71955/metadata.csv
+    ingest_dir: data/gugak_ensemble_71955/ingest
+    eval_manifest: manifests/separation/eval_manifest.parquet
+    source_manifest: manifests/separation/source_manifest_v2.parquet
+    jeongak_songs:
+      genre_major: 정악
+    pick_stems:
+      genre_major: 민속악
+      genre_subs:
+      - 산조
+      - 대풍류
+      instruments:
+      - daegeum
+      - piri
+      - haegeum
+      - ajaeng
+      - gayageum
+      - geomungo
+  instruments:
+    english_names:
+      대금: daegeum
+      피리: piri
+      해금: haegeum
+      아쟁: ajaeng
+      가야금: gayageum
+      거문고: geomungo
+run:
+  artifacts_dir: storage/experiments/exp002_261022_strand_b_pilot
+  out_table: storage/experiments/exp002_261022_strand_b_pilot/tables/picked_stems.parquet

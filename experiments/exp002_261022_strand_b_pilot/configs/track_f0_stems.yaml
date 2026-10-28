@@ -1,0 +1,26 @@
+# track_f0 run config, built from configs/ by src/launch/make_run_config.py
+features:
+  f0:
+    f0_tracker: crepe
+    yin:
+      window_seconds: 0.046
+      hop_seconds: 0.01
+      fmin_hz: 40
+      fmax_hz: 1600
+      threshold: 0.15
+    crepe:
+      model: full
+      decoder: viterbi
+      model_sample_rate: 16000
+      hop_seconds: 0.01
+      fmin_hz: 50.0
+      fmax_hz: 2000.0
+      batch_size: 2048
+      device: cuda
+      seed: 42
+run:
+  artifacts_dir: storage/experiments/exp002_261022_strand_b_pilot
+  table: storage/experiments/exp002_261022_strand_b_pilot/tables/picked_stems.parquet
+  path_column: stem_path
+  id_column: stem_id
+  out_dir: storage/experiments/exp002_261022_strand_b_pilot/f0/stems

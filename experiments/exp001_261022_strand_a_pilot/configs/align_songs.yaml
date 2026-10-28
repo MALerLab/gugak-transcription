@@ -1,0 +1,109 @@
+# align_songs run config, built from configs/ by src/launch/make_run_config.py
+datasets:
+  separation:
+    metadata_csv: data/gugak_ensemble_71955/metadata.csv
+    ingest_dir: data/gugak_ensemble_71955/ingest
+    eval_manifest: manifests/separation/eval_manifest.parquet
+    source_manifest: manifests/separation/source_manifest_v2.parquet
+    jeongak_songs:
+      genre_major: 정악
+    pick_stems:
+      genre_major: 민속악
+      genre_subs:
+      - 산조
+      - 대풍류
+      instruments:
+      - daegeum
+      - piri
+      - haegeum
+      - ajaeng
+      - gayageum
+      - geomungo
+  instruments:
+    english_names:
+      대금: daegeum
+      피리: piri
+      해금: haegeum
+      아쟁: ajaeng
+      가야금: gayageum
+      거문고: geomungo
+  six_dragon:
+    musicxml_dir: data/jeongganbo_musicxml
+    part_names:
+    - daegeum
+    - piri
+    - haegeum
+    - ajaeng
+    - gayageum
+    - geomungo
+notes:
+  table:
+    grace_seconds: 0.08
+align:
+  warp:
+    refine_feature_rate: 10
+    refine_cens_smooth_frames: 11
+    refine_cens_downsample: 1
+    refine_pad_quarters: 12
+    refine_tempo_factors:
+    - 0.85
+    - 0.92
+    - 1.0
+    - 1.08
+    - 1.17
+    feature_rate: 50
+    step_weights:
+    - 1.5
+    - 1.5
+    - 2.0
+    threshold_rec: 1000000
+    alpha: 0.5
+features:
+  f0:
+    f0_tracker: yin
+    yin:
+      window_seconds: 0.046
+      hop_seconds: 0.01
+      fmin_hz: 40
+      fmax_hz: 1600
+      threshold: 0.15
+    crepe:
+      model: full
+      decoder: viterbi
+      model_sample_rate: 16000
+      hop_seconds: 0.01
+      fmin_hz: 50.0
+      fmax_hz: 2000.0
+      batch_size: 2048
+      device: cuda
+      seed: 42
+  onsets:
+    spectral_flux:
+      window: 2048
+      hop_seconds: 0.01
+      median_seconds: 0.5
+      delta: 0.05
+      min_gap_seconds: 0.05
+    energy:
+      rise_db: 4.5
+      rise_window_seconds: 0.04
+      min_inter_onset_seconds: 0.08
+evaluate:
+  alignment:
+    note_core_fraction:
+    - 0.2
+    - 0.8
+    min_note_seconds: 0.15
+    min_voiced_frames: 3
+    pitch_hit_semitones: 0.5
+    onset_tolerance_seconds: 0.1
+    chance_offsets_seconds:
+    - -7.0
+    - -3.0
+    - 3.0
+    - 7.0
+run:
+  artifacts_dir: storage/experiments/exp001_261022_strand_a_pilot
+  cache_dir: storage/experiments/exp001_261022_strand_a_pilot/cache
+  tables_dir: storage/experiments/exp001_261022_strand_a_pilot/tables
+  num_workers: 16

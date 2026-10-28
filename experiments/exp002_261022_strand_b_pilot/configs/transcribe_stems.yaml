@@ -1,0 +1,69 @@
+# transcribe_stems run config, built from configs/ by src/launch/make_run_config.py
+features:
+  f0:
+    f0_tracker: crepe
+    yin:
+      window_seconds: 0.046
+      hop_seconds: 0.01
+      fmin_hz: 40
+      fmax_hz: 1600
+      threshold: 0.15
+    crepe:
+      model: full
+      decoder: viterbi
+      model_sample_rate: 16000
+      hop_seconds: 0.01
+      fmin_hz: 50.0
+      fmax_hz: 2000.0
+      batch_size: 2048
+      device: cuda
+      seed: 42
+  onsets:
+    spectral_flux:
+      window: 2048
+      hop_seconds: 0.01
+      median_seconds: 0.5
+      delta: 0.05
+      min_gap_seconds: 0.05
+    energy:
+      rise_db: 4.5
+      rise_window_seconds: 0.04
+      min_inter_onset_seconds: 0.08
+  tuning:
+    stable_slope_cents_per_frame: 5.0
+    smoothing_cents: 5.0
+transcribe:
+  note_ify:
+    method: stability
+    energy_window_seconds: 0.032
+    silence_floor: 1.0e-06
+    confidence_threshold: 0.2
+    energy_gate_db: 30.0
+    gap_fill_seconds: 0.05
+    tuning_correction: true
+    median_filter_seconds: 0.15
+    hysteresis_semitones: 1.1
+    min_switch_seconds: 0.02
+    onset_split: true
+    min_note_seconds: 0.15
+    velocity_range:
+    - 40
+    - 110
+notes:
+  midi:
+    score_velocity: 80
+    gm_programs:
+      daegeum: 77
+      piri: 111
+      haegeum: 110
+      ajaeng: 42
+      gayageum: 107
+      geomungo: 106
+    pitch_bend_range_semitones: 12
+    pitch_bend_min_step_cents: 3.0
+run:
+  artifacts_dir: storage/experiments/exp002_261022_strand_b_pilot
+  stems_table: storage/experiments/exp002_261022_strand_b_pilot/tables/picked_stems.parquet
+  f0_dir: storage/experiments/exp002_261022_strand_b_pilot/f0/stems
+  out_dir: storage/experiments/exp002_261022_strand_b_pilot/tables/stems
+  num_workers: 12

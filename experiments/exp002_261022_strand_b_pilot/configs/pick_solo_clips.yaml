@@ -1,0 +1,30 @@
+# pick_solo_clips run config, built from configs/ by src/launch/make_run_config.py
+datasets:
+  solo:
+    source_manifest: manifests/separation/source_manifest_v2.parquet
+    labels_dir: data/gugak_solo_71470/labels
+    midi_dir: data/gugak_solo_71470/midi
+    genre_codes:
+    - F01
+    - F02
+    - F03
+    instruments:
+    - daegeum
+    - piri
+    - haegeum
+    - ajaeng
+    - gayageum
+    - geomungo
+    dev_fraction: 0.3
+    seed: 0
+  instruments:
+    english_names:
+      대금: daegeum
+      피리: piri
+      해금: haegeum
+      아쟁: ajaeng
+      가야금: gayageum
+      거문고: geomungo
+run:
+  artifacts_dir: storage/experiments/exp002_261022_strand_b_pilot
+  out_table: storage/experiments/exp002_261022_strand_b_pilot/tables/solo_clips.parquet
