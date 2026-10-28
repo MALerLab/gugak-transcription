@@ -1,0 +1,9 @@
+# Which separation-dataset stems strand B tracks, used by src/data/pick_stems.py
+source_manifest: manifests/separation/source_manifest_v2.parquet
+metadata_csv: data/gugak_ensemble_71955/metadata.csv
+genre_major: 민속악
+# 산조 = one melodic instrument + 장구: the cleanest monophonic stems.
+# 대풍류 = instrumental 민속악 ensemble (the dataset has no 시나위 genre); its stems test heterophony and bleed.
+genre_subs: [산조, 대풍류]
+# Melodic instruments only; 장구 / 좌고 are unpitched.
+instruments: [대금, 피리, 해금, 아쟁, 가야금, 거문고]

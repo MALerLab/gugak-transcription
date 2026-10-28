@@ -1,0 +1,32 @@
+# Note-ify: f0 curve → note events, used by src/pitch/notes.py
+# Voicing and segmentation values tuned on the solo dataset's dev pieces (exp002, coordinate descent on onset+pitch F1)
+method: stability          # stability (hysteresis + onset cues) | naive (snap every frame, merge equal runs)
+
+# Frame energy, measured on the 16 kHz mono audio at the f0 hop
+energy_window_seconds: 0.032
+silence_floor: 1.0e-6      # absolute RMS below this is silence (ingest left a ±1-LSB residue, PROJECT.md gotchas)
+
+# Voicing: a frame belongs to a note only if both hold
+confidence_threshold: 0.2  # CREPE periodicity
+energy_gate_db: 30.0       # frame RMS within this many dB of the recording's loud level (95th percentile)
+gap_fill_seconds: 0.05     # unvoiced gaps this short inside a phrase are bridged (CREPE dips at attacks)
+
+# Tuning offset from A440, measured before snapping
+tuning_correction: true                    # snap to the measured grid (true) or to plain A440 (false)
+tuning_stable_slope_cents_per_frame: 5.0   # only frames whose pitch moves less than this count
+tuning_smoothing_cents: 5.0                # circular Gaussian on the 1-cent histogram of (cents mod 100)
+
+# Segmentation (method: stability)
+median_filter_seconds: 0.15      # smooths the semitone curve before deciding note changes
+hysteresis_semitones: 1.1        # leave the current note only when the curve is this far from it…
+min_switch_seconds: 0.02         # …for at least this long (vibrato and quick bends stay inside one note)
+onset_split: true                # split a same-pitch stretch at an energy onset (repeated plucks, tonguing)
+onset_rise_db: 4.5               # energy rise that counts as an onset…
+onset_rise_window_seconds: 0.04  # …within this window
+min_inter_onset_seconds: 0.08
+min_note_seconds: 0.15           # shorter notes merge into a touching neighbour, or are dropped
+
+# MIDI output
+velocity_range: [40, 110]        # note loudness (RMS dB) mapped linearly into this range
+pitch_bend_range_semitones: 12   # set via RPN 0 so 시김새 bends beyond ±2 semitones fit
+pitch_bend_min_step_cents: 3.0   # write a new bend event only when the bend moves this much
