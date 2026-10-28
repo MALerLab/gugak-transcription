@@ -181,7 +181,7 @@ Every clip is 30 s and loudness-matched. **real** = the actual stem (or the mix 
 10. **Velocity** is a constant 80 (the MusicXML has no dynamics).
 11. **Stems with no MusicXML part** (소금, 단소, 양금, all percussion) are left out of the alignment audio and get no labels.
 12. **Each clip's start** is the 30 s window with the most note onsets of that clip's parts.
-13. **Caches, aligned note tables and all aligned MIDI** live on `~/storage/gugak-transcription/` (`cache/exp001_strand_a_pilot`, `exp001_strand_a_pilot/aligned_midi/{per_song,per_stem}`), not in the repo.
+13. **Caches, aligned note tables and all aligned MIDI** live on `storage/experiments/exp001_261022_strand_a_pilot/` (`cache/`, `aligned_midi/{per_song,per_stem}`), not in the repo.
 
 ---
 
