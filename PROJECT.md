@@ -61,7 +61,12 @@
   checkout, made by `setup_worktree.sh`. Read-only: that repo owns and commits these tables.
 - `data/` = symlinks to `~/storage/...`, untracked. Link names match the separation repo's,
   because its manifests store repo-relative paths (`data/gugak_ensemble_71955/ingest/...`).
+- `storage/` = link to `~/storage/gugak-transcription/`, made by `setup_worktree.sh`, untracked:
+  datasets, soundfonts, experiment artifacts.
 - `experiments/`: `exp<NNN>_<YYMMDD>_<rest>`.
+- `experiments/<exp>/` tracks only `REPORT.md` + git-state files. Every output (tables,
+  caches, audio, MIDI, logs) lives in `storage/experiments/<exp>/`, reached through the
+  folder's untracked `artifacts` symlink. Tables go in its `tables/`. Never commit artifacts.
 - The repo is public: audio, MIDI, MusicXML and checkpoints are never committed.
 
 ## Vocabulary (one word per concept, in code and docs)
