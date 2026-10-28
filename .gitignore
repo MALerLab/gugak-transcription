@@ -11,6 +11,8 @@ __pycache__/
 
 # --- Data: symlinks to ~/storage, made by setup_worktree.sh ---
 /data/
+# no trailing slash: a symlink is a file to git
+/storage
 
 # --- Manifests: linked in from the separation repo's main checkout by setup_worktree.sh;
 #     that repo owns and commits them ---
@@ -35,6 +37,8 @@ outputs/
 *.pth
 # `checkpoints/` matches directories only; a checkpoints symlink into ~/storage is a file to git
 experiments/**/checkpoints
+# each experiment's artifacts live on storage; the repo folder keeps a symlink
+experiments/**/artifacts
 
 # --- CSVs are regenerable twins; parquet is what gets tracked ---
 *.csv
