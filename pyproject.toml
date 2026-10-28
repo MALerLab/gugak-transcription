@@ -4,14 +4,17 @@ version = "0.1.0"
 description = "Gugak (traditional Korean music) audio → MIDI transcription."
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    "mir-eval>=0.8.2",
     "numpy>=2.4.6",
     "omegaconf>=2.4.0",
     "pandas>=3.0.6",
+    "pretty-midi>=0.2.11.post0",
     "pyarrow>=26.0.0",
     "pyyaml>=6.0.3",
     "soundfile>=0.14.0",
     "torch>=2.11.0",
     "torchaudio>=2.11.0",
+    "torchcrepe>=0.0.24",
     "tqdm>=4.70.1",
     "wandb>=0.31.0",
 ]
