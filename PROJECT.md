@@ -78,6 +78,19 @@
 - **per-song alignment** — one warping path from a partial sum-stem (only the stems that have
   a score part), applied to every part.
 - **per-stem alignment** — one warping path per stem, from that stem and its own part only.
+- **song** — one recording in the separation dataset = one `ingest/<song>/` folder. Often only
+  part of a piece (e.g. one 장).
+- **score** — one six dragon MusicXML file = one complete piece (for a suite, one movement).
+- **part** — one instrument's line in a score (MusicXML's `<part>`). Jae says **track** in chat
+  (MIDI's word for it); code and docs say part. The audio side is always a stem.
+- **suite** — a set of pieces always played together in a fixed order (e.g. 영산회상).
+- **movement** — one named piece in a suite (e.g. 상령산), held in one score.
+- **장 / chapter** — a numbered section of a movement, played in order; both words are fine.
+- **range** — the stretch of a score one song covers, from–to. Replaces "span"; the exp001
+  code still says section / span (`section_start_quarter`, `span_ok`).
+- **duration** — how long something lasts. Score-side ranges and durations count bars by
+  default; the code stores quarter-note beats.
+- **clip** — a 30 s listening excerpt. Not an alignment unit.
 
 ## Invariants
 - Reuse the separation repo's frozen song split (`manifests/separation/eval_manifest.parquet`);
