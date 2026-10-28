@@ -197,8 +197,8 @@ def decide_matches(songs: pd.DataFrame, pieces: pd.DataFrame, costs: pd.DataFram
 def main(config_path: str, decide_only: bool) -> None:
     config = OmegaConf.load(config_path)
     convert_config = OmegaConf.load(Path(config_path).with_name("convert.yaml"))
-    output_dir = Path(config.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    tables_dir = Path(config.tables_dir)
+    tables_dir.mkdir(parents=True, exist_ok=True)
 
     # Both catalogues + title rules
     pieces = convert.list_musicxml_pieces(Path(convert_config.musicxml_dir), list(convert_config.part_names))
@@ -210,18 +210,18 @@ def main(config_path: str, decide_only: bool) -> None:
           f"{(songs['candidates'].str.len() > 0).sum()} songs with a title candidate")
 
     if decide_only:  # reuse saved costs; tunings come from the feature cache
-        costs = pd.read_parquet(output_dir / "match_costs.parquet")
+        costs = pd.read_parquet(tables_dir / "match_costs.parquet")
         songs = songs[songs["song_id"].isin(costs["song_id"])].copy()
         songs["tuning_cents"] = [audio_cens_for_song(s, [], config)[1] for s in songs["song_id"]]
         audio = dict.fromkeys(songs["song_id"])
     else:
         costs, audio = compute_costs(songs, pieces, config)
-        costs.to_parquet(output_dir / "match_costs.parquet")
+        costs.to_parquet(tables_dir / "match_costs.parquet")
 
     # Decide + write
     matches = decide_matches(songs[songs["song_id"].isin(audio)], pieces, costs, config)
     matches = matches.merge(songs[["song_id", "tuning_cents", "stems"]], on="song_id")
-    matches.to_parquet(output_dir / "match_table.parquet")
+    matches.to_parquet(tables_dir / "match_table.parquet")
     print(matches["confidence"].value_counts().to_string())
     for tier in (["high"], ["high", "medium"], ["high", "medium", "low"]):
         kept = matches[matches["confidence"].isin(tier)]

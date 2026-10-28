@@ -10,7 +10,8 @@ peak_ceiling: 0.95
 target_rms: 0.1             # ≈ −20 dBFS for the real audio of every clip
 
 # Aligned MIDI for every aligned song (labels; on storage, never in the repo)
-aligned_midi_dir: ~/storage/gugak-transcription/exp001_strand_a_pilot/aligned_midi
+aligned_midi_dir: storage/experiments/exp001_261022_strand_a_pilot/aligned_midi
+listening_dir: storage/experiments/exp001_261022_strand_a_pilot/listening
 
 # Listening clips (exp001). parts: list of MusicXML parts, or "all" (the mix of matched stems).
 # start_seconds omitted → the 30 s window with the most note onsets of those parts.

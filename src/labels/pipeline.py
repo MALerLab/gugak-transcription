@@ -135,8 +135,8 @@ def _job(args):
 
 def main(config_dir: str, song_ids: list[str] | None, merge: bool) -> None:
     config = load_configs(config_dir)
-    output_dir = Path(config.match.output_dir)
-    matches = pd.read_parquet(output_dir / "match_table.parquet")
+    tables_dir = Path(config.match.tables_dir)
+    matches = pd.read_parquet(tables_dir / "match_table.parquet")
     accepted = matches[matches["confidence"].isin(["high", "medium", "low"])]
     if song_ids:
         accepted = accepted[accepted["song_id"].isin(song_ids)]
@@ -154,13 +154,13 @@ def main(config_dir: str, song_ids: list[str] | None, merge: bool) -> None:
     new_quality, new_sections = pd.DataFrame(quality_rows), pd.DataFrame(summaries)
     if song_ids and merge:  # replace these songs' rows in the full tables
         for name, new in (("alignment_quality", new_quality), ("alignment_sections", new_sections)):
-            full = pd.read_parquet(output_dir / f"{name}.parquet")
+            full = pd.read_parquet(tables_dir / f"{name}.parquet")
             full = pd.concat([full[~full["song_id"].isin(song_ids)], new], ignore_index=True)
-            full.to_parquet(output_dir / f"{name}.parquet")
+            full.to_parquet(tables_dir / f"{name}.parquet")
         return
     suffix = "" if not song_ids else "_subset"
-    new_quality.to_parquet(output_dir / f"alignment_quality{suffix}.parquet")
-    new_sections.to_parquet(output_dir / f"alignment_sections{suffix}.parquet")
+    new_quality.to_parquet(tables_dir / f"alignment_quality{suffix}.parquet")
+    new_sections.to_parquet(tables_dir / f"alignment_sections{suffix}.parquet")
 
 
 if __name__ == "__main__":

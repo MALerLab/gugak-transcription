@@ -45,7 +45,7 @@ def busiest_window(timed: pd.DataFrame, parts: list[str], seconds: float, audio_
 def build_clip(clip, matches: pd.DataFrame, shifts: dict, config) -> list[dict]:
     """Write the three WAVs (+ MIDI) of one clip, and of its unaligned version if asked."""
     row = matches.set_index("song_id").loc[clip.song_id]
-    folder = Path(config.match.output_dir) / "listening" / clip.name
+    folder = Path(config.render.listening_dir) / clip.name
     stem_paths = match.song_stem_paths(clip.song_id, list(row["stems"]), config.match)
     parts = list(clip.parts) if clip.parts != "all" else [p for p in stem_paths if p in row["parts_in_musicxml"]]
     methods = [clip.method] + (["linear"] if clip.get("with_unaligned", False) else [])
@@ -85,14 +85,14 @@ def build_clip(clip, matches: pd.DataFrame, shifts: dict, config) -> list[dict]:
 
 def main(config_dir: str) -> None:
     config = load_configs(config_dir)
-    output_dir = Path(config.match.output_dir)
-    matches = pd.read_parquet(output_dir / "match_table.parquet")
-    quality_table = pd.read_parquet(output_dir / "alignment_quality.parquet")
+    tables_dir = Path(config.match.tables_dir)
+    matches = pd.read_parquet(tables_dir / "match_table.parquet")
+    quality_table = pd.read_parquet(tables_dir / "alignment_quality.parquet")
     shifts = sounding_shifts(quality_table)
 
     # Aligned MIDI for every aligned song (labels; kept on storage, not in the repo)
     midi_dir = Path(os.path.expanduser(config.render.aligned_midi_dir))
-    sections = pd.read_parquet(output_dir / "alignment_sections.parquet")
+    sections = pd.read_parquet(tables_dir / "alignment_sections.parquet")
     aligned = sections[sections["error"].isna()] if "error" in sections.columns else sections
     for song in aligned.itertuples():
         for method in ("per_song", "per_stem"):
@@ -103,7 +103,7 @@ def main(config_dir: str) -> None:
     for clip in config.render.clips:
         rows.extend(build_clip(clip, matches, shifts, config))
         print("clip", clip.name, flush=True)
-    pd.DataFrame(rows).to_parquet(output_dir / "listening_clips.parquet")
+    pd.DataFrame(rows).to_parquet(tables_dir / "listening_clips.parquet")
 
 
 if __name__ == "__main__":

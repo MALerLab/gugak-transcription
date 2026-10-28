@@ -63,9 +63,9 @@ def main(config_dir: str) -> None:
     configs = load_configs(config_dir)
     match_config, convert_config = configs.match, configs.convert
     relocate_config = OmegaConf.load(Path(config_dir) / "relocate.yaml")
-    output_dir = Path(match_config.output_dir)
-    table_path = output_dir / "match_table.parquet"
-    stage1_copy = output_dir / "match_table_stage1.parquet"
+    tables_dir = Path(match_config.tables_dir)
+    table_path = tables_dir / "match_table.parquet"
+    stage1_copy = tables_dir / "match_table_stage1.parquet"
     if not stage1_copy.exists():  # keep the one-at-a-time spans for the report
         shutil.copy(table_path, stage1_copy)
     matches = pd.read_parquet(stage1_copy)

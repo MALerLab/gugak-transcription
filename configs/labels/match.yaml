@@ -60,5 +60,6 @@ min_null_margin_medium: 0.01
 min_runner_up_margin: 0.015
 num_workers: 16
 
-cache_dir: ~/storage/gugak-transcription/cache/exp001_strand_a_pilot
-output_dir: experiments/exp001_261022_strand_a_pilot
+# Experiment artifacts on storage, through the repo's storage/ link
+cache_dir: storage/experiments/exp001_261022_strand_a_pilot/cache
+tables_dir: storage/experiments/exp001_261022_strand_a_pilot/tables
