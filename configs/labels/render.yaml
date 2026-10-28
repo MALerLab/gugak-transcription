@@ -1,0 +1,25 @@
+# Stage 4: render aligned MIDI and build listening clips (src/labels/render.py)
+
+soundfont: ~/storage/gugak-transcription/soundfonts/MuseScore_General.sf2
+fluidsynth_gain: 0.6
+sample_rate: 44100
+clip_seconds: 30
+# Layered clip: the render is scaled to this RMS ratio vs the real audio before summing
+layer_render_to_real_rms: 0.8
+peak_ceiling: 0.95
+target_rms: 0.1             # ≈ −20 dBFS for the real audio of every clip
+
+# Aligned MIDI for every aligned song (labels; on storage, never in the repo)
+aligned_midi_dir: ~/storage/gugak-transcription/exp001_strand_a_pilot/aligned_midi
+
+# Listening clips (exp001). parts: list of MusicXML parts, or "all" (the mix of matched stems).
+# start_seconds omitted → the 30 s window with the most note onsets of those parts.
+clips:
+  - {name: 01_ensemble_hyeonak_sangnyeongsan, song_id: 0009_정악_풍류음악, parts: all, method: per_song, with_unaligned: true}
+  - {name: 02_gayageum_gagok_urong, song_id: 0069_정악_풍류음악, parts: [gayageum], method: per_song}
+  - {name: 03_piri_sujecheon, song_id: 0140_정악_궁중음악, parts: [piri], method: per_song}
+  - {name: 04_ajaeng_yeominlak, song_id: 0130_정악_궁중음악, parts: [ajaeng], method: per_song}
+  - {name: 05_daegeum_gunak_fast, song_id: 0063_정악_풍류음악, parts: [daegeum], method: per_song}
+  - {name: 06_geomungo_gyemyeon_garakdodeuri, song_id: 0046_정악_풍류음악, parts: [geomungo], method: per_song}
+  - {name: 07_haegeum_bohoeja_transposed, song_id: 0123_정악_궁중음악, parts: [haegeum], method: per_song}
+  - {name: 08_worst_gwanak_jungnyeongsan, song_id: 0014_정악_풍류음악, parts: all, method: per_song}

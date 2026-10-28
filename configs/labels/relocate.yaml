@@ -1,0 +1,17 @@
+# Stage 1b: groups of consecutive 장 placed jointly (src/labels/relocate.py)
+# Chosen from exp001's tiling check: these spans overlapped when located one at a time.
+# anchor: both = the group is the whole movement (path from score start to score end);
+#         start = the group starts at 1장 but later 장 are missing (free end).
+groups:
+  - name: 관악영산회상 상령산 1–4장
+    songs: [0001_정악_풍류음악, 0002_정악_풍류음악, 0003_정악_풍류음악, 0004_정악_풍류음악]
+    anchor: both
+  - name: 관악영산회상 중령산 1–5장
+    songs: [0013_정악_풍류음악, 0014_정악_풍류음악, 0015_정악_풍류음악, 0016_정악_풍류음악, 0017_정악_풍류음악]
+    anchor: both
+# 평조회상 상령산/중령산 were tried jointly too (exp001) and gave unstable boundaries
+# (1 Hz vs 10 Hz disagreed by ~30 quarters), so they keep their one-at-a-time spans.
+
+# Rejected when checked alone, re-admitted because the stage-1 span sits exactly between its
+# neighbours (평조 중령산 4장: 330–420, between 3장 241–329 and 5장 421–522).
+readmit: [0021_정악_풍류음악]
