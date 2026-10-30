@@ -43,6 +43,9 @@ experiments/**/artifacts
 # --- CSVs are regenerable twins; parquet is what gets tracked ---
 *.csv
 
+# --- Lab code cloned from private repos (src/ imports it; never pushed, the repo is public) ---
+/externals/
+
 # --- One-off / temporary scripts (promote to src/ once reused) ---
 /scripts/
 

@@ -1,0 +1,10 @@
+# MALer Lab's custom PESTO f0 tracker (gugak-trained), used by src/features/f0/custom_pesto.py
+repo_dir: externals/Custom_PESTO   # untracked clone of MALerLab/Custom_PESTO (private); never pushed
+repo_commit: 7be981283d137d01cbf569b534b7177e26c84fb3  # loading fails if the clone is at another commit
+checkpoint: externals/Custom_PESTO/nia_gugak.ckpt     # the repo's bundled weights
+checkpoint_md5: 41d3a7fa8127556e1e51d17c662da998
+use_viterbi: true         # the repo's default: CREPE-style Viterbi over the output bins, pitch lands on a 1/3-semitone grid
+max_chunks: 128           # the repo's out-of-memory fallback: split the frames into up to this many chunks
+model_sample_rate: 44100  # the repo feeds files at their own rate; stems and solo clips are 44.1 kHz
+hop_seconds: 0.01         # the repo's run_pesto.py uses 10 ms
+device: cuda              # cuda | cpu; the GPU index comes from CUDA_VISIBLE_DEVICES

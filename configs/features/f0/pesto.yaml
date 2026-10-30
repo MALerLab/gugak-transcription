@@ -1,0 +1,6 @@
+# Stock PESTO f0 tracker (pesto-pitch package), used by src/features/f0/pesto.py
+checkpoint: mir-1k_g7     # weights bundled with pesto-pitch 2.0.1: mir-1k_g7 (its default) | mir-1k
+reduction: alwa           # pitch = activation-weighted mean around the peak bin (package default); no smoothing over time
+model_sample_rate: 44100  # PESTO takes any rate; stems and solo clips are 44.1 kHz, so nothing is resampled
+hop_seconds: 0.01         # one f0 value every 10 ms, as CREPE
+device: cuda              # cuda | cpu; the GPU index comes from CUDA_VISIBLE_DEVICES
