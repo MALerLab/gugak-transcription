@@ -4,11 +4,13 @@ version = "0.1.0"
 description = "Gugak (traditional Korean music) audio → MIDI transcription."
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    "hmmlearn>=0.3.3",
     "mir-eval>=0.8.2",
     "numpy>=2.4.6",
     "omegaconf>=2.4.0",
     "pandas>=3.0.6",
     "partitura>=1.9.0",
+    "pesto-pitch>=2.0.1",
     "piano-transcription-inference>=0.0.6",
     "pretty-midi>=0.2.11.post0",
     "pyarrow>=26.0.0",
