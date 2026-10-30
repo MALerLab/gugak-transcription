@@ -62,5 +62,7 @@ MEMO.md
 .claude/settings.local.json
 # CLAUDE.md is per-checkout and kept out of the public repo; project facts live in PROJECT.md
 /CLAUDE.md
+# todo.md: unfinished jobs across sessions, per checkout like CLAUDE.md
+/todo.md
 
 # NOTE: uv.lock IS committed (reproducible env) — do not ignore it.

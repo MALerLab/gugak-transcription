@@ -33,6 +33,8 @@ done
 link "$SEPARATION_REPO/manifests/parquet" manifests/separation
 # CLAUDE.md is untracked (public repo); every worktree links to the main checkout's copy
 if [ "$PWD" != "$MAIN_CHECKOUT" ]; then link "$MAIN_CHECKOUT/CLAUDE.md" CLAUDE.md; fi
+# todo.md (unfinished jobs across sessions) is untracked too; shared the same way
+if [ "$PWD" != "$MAIN_CHECKOUT" ]; then link "$MAIN_CHECKOUT/todo.md" todo.md; fi
 
 # 2. Python env (.venv), exactly as uv.lock says
 uv sync --frozen  # --frozen: install the lockfile as-is, never update it
