@@ -1,0 +1,31 @@
+ M .gitignore
+ M configs/evaluate/alignment.yaml
+RM configs/features/f0.yaml -> configs/features/f0/yin.yaml
+ M configs/pipelines/align_songs.yaml
+ M configs/pipelines/score_solo.yaml
+ M configs/pipelines/track_f0.yaml
+ M configs/pipelines/transcribe_stems.yaml
+ M pyproject.toml
+ M setup_worktree.sh
+ M src/evaluate/alignment.py
+RM src/features/f0.py -> src/features/f0/yin.py
+ M src/launch/make_run_config.py
+ M src/pipelines/align_songs.py
+ M src/pipelines/common.py
+ M src/pipelines/score_solo.py
+ M src/pipelines/track_f0.py
+ M src/pipelines/transcribe_stems.py
+ M src/transcribe/note_ify.py
+ M uv.lock
+?? configs/evaluate/f0.yaml
+?? configs/features/f0/crepe.yaml
+?? configs/features/f0/custom_pesto.yaml
+?? configs/features/f0/pesto.yaml
+?? configs/pipelines/score_f0.yaml
+?? experiments/exp005_261030_f0_trackers/
+?? src/evaluate/f0.py
+?? src/features/f0/__init__.py
+?? src/features/f0/crepe.py
+?? src/features/f0/custom_pesto.py
+?? src/features/f0/pesto.py
+?? src/pipelines/score_f0.py

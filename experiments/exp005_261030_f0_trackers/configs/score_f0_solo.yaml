@@ -1,0 +1,90 @@
+# score_f0 run config, built from configs/ by src/launch/make_run_config.py
+features:
+  f0:
+    crepe:
+      model: full
+      decoder: viterbi
+      model_sample_rate: 16000
+      hop_seconds: 0.01
+      fmin_hz: 50.0
+      fmax_hz: 2000.0
+      batch_size: 2048
+      device: cuda
+      seed: 42
+    pesto:
+      checkpoint: mir-1k_g7
+      reduction: alwa
+      model_sample_rate: 44100
+      hop_seconds: 0.01
+      device: cuda
+    custom_pesto:
+      repo_dir: externals/Custom_PESTO
+      repo_commit: 7be981283d137d01cbf569b534b7177e26c84fb3
+      checkpoint: externals/Custom_PESTO/nia_gugak.ckpt
+      checkpoint_md5: 41d3a7fa8127556e1e51d17c662da998
+      use_viterbi: true
+      max_chunks: 128
+      model_sample_rate: 44100
+      hop_seconds: 0.01
+      device: cuda
+evaluate:
+  f0:
+    note_core_fraction:
+    - 0.2
+    - 0.8
+    min_note_seconds: 0.15
+    pitch_tolerance_cents: 50.0
+    shift_semitones:
+    - -1
+    - 0
+    - 1
+datasets:
+  separation:
+    metadata_csv: data/gugak_ensemble_71955/metadata.csv
+    ingest_dir: data/gugak_ensemble_71955/ingest
+    eval_manifest: manifests/separation/eval_manifest.parquet
+    source_manifest: manifests/separation/source_manifest_v2.parquet
+    jeongak_songs:
+      genre_major: 정악
+    pick_stems:
+      genre_major: 민속악
+      genre_subs:
+      - 산조
+      - 대풍류
+      instruments:
+      - daegeum
+      - piri
+      - haegeum
+      - ajaeng
+      - gayageum
+      - geomungo
+  instruments:
+    english_names:
+      대금: daegeum
+      피리: piri
+      해금: haegeum
+      아쟁: ajaeng
+      가야금: gayageum
+      거문고: geomungo
+run:
+  artifacts_dir: storage/experiments/exp005_261030_f0_trackers
+  answer_key: solo
+  trackers:
+  - crepe
+  - pesto
+  - custom_pesto
+  limit_items: 0
+  six_dragon:
+    quality_table: storage/experiments/exp001_261022_strand_a_pilot/tables/alignment_quality_by_song.parquet
+    match_table: storage/experiments/exp001_261022_strand_a_pilot/tables/match_table.parquet
+    midi_dir: storage/experiments/exp001_261022_strand_a_pilot/aligned_midi/per_stem
+    splits:
+    - val
+    - test
+  solo:
+    clips_table: storage/experiments/exp002_261022_strand_b_pilot/tables/solo_clips.parquet
+    partition: test
+    reference_check_table: storage/experiments/exp002_261022_strand_b_pilot/tables/solo_eval/test_stability_clips.parquet
+    max_reference_transposition: 1
+  f0_dir: storage/experiments/exp005_261030_f0_trackers/f0/solo
+  tables_dir: storage/experiments/exp005_261030_f0_trackers/tables/solo
