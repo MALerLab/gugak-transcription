@@ -1,0 +1,5 @@
+# f0 accuracy against reference notes, used by src/evaluate/f0.py
+note_core_fraction: [0.2, 0.8]  # score only the middle of each note: its edges carry the alignment's timing error and slides into the note
+min_note_seconds: 0.15          # shorter notes are all edge; left out (same as exp001's pitch check)
+pitch_tolerance_cents: 50.0     # MIREX standard
+shift_semitones: [-1, 0, 1]     # best-shift accuracy tries these whole-item reference shifts (the solo MIDI's semitone gaps)
