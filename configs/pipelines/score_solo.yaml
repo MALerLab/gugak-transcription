@@ -2,9 +2,10 @@
 # uses: module recipes merged in (configs/<path>.yaml) · run: this command's own settings
 # overrides: changes to the module recipes for this command
 # src/launch/make_run_config.py turns this into experiments/<exp>/configs/<name>.yaml; the run reads only that.
-uses: [features/f0, features/onsets, features/tuning, transcribe/note_ify, evaluate/transcription]
+uses: [features/f0/crepe, features/onsets, features/tuning, transcribe/note_ify, evaluate/transcription]
 run:
   artifacts_dir: ???
+  f0_tracker: crepe       # the tracker track_f0 ran
   clips_table: ???        # picked solo clips (pick_solo_clips)
   f0_dir: ???             # track_f0's output for those clips
   partition: test         # dev | test

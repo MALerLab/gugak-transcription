@@ -2,12 +2,12 @@
 # uses: module recipes merged in (configs/<path>.yaml) · run: this command's own settings
 # overrides: changes to the module recipes for this command
 # src/launch/make_run_config.py turns this into experiments/<exp>/configs/<name>.yaml; the run reads only that.
-uses: [features/f0]
+uses: [features/f0/crepe]
 run:
   artifacts_dir: ???
+  f0_tracker: crepe       # a tracker whose recipe is in uses
   table: ???              # parquet with one row per audio file
   path_column: ???        # its audio path column
   id_column: ???          # its id column → <out_dir>/<id>.npz
   out_dir: ${run.artifacts_dir}/f0
-overrides:
-  features/f0: {f0_tracker: crepe}
+overrides: {}

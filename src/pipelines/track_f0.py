@@ -1,6 +1,6 @@
 """Command: track f0 for every audio file in a table; one .npz (time, f0_hz, confidence) per file.
 
-The tracker is ``features.f0.f0_tracker`` in the run config. Files already tracked are skipped,
+The tracker is ``run.f0_tracker`` in the run config. Files already tracked are skipped,
 so an interrupted run resumes.
 
 Usage: python -m src.pipelines.track_f0 --config experiments/<exp>/configs/track_f0.yaml
@@ -15,14 +15,15 @@ import numpy as np
 import pandas as pd
 
 from src.audio.io import load_mono_resampled
-from src.features.f0 import track_f0
+from src.features.f0 import make_f0_tracker
 from src.pipelines.common import active_f0_tracker, f0_path, load_run_config
 
 
 def track_table(config) -> None:
     """Run the tracker over every row of ``run.table``, skipping files already done."""
-    run, f0_config = config.run, config.features.f0
-    sample_rate = active_f0_tracker(f0_config).model_sample_rate
+    run, tracker_config = config.run, active_f0_tracker(config)
+    sample_rate = tracker_config.model_sample_rate
+    track_f0 = make_f0_tracker(run.f0_tracker, tracker_config)
     table = pd.read_parquet(run.table)
     Path(run.out_dir).mkdir(parents=True, exist_ok=True)
     started = time.time()
@@ -31,7 +32,7 @@ def track_table(config) -> None:
         if out_path.exists():
             continue
         mono = load_mono_resampled(getattr(row, run.path_column), sample_rate)
-        track = track_f0(mono, sample_rate, f0_config)
+        track = track_f0(mono, sample_rate)
         np.savez_compressed(out_path, **track)
         print(f"[{row_index + 1}/{len(table)}] {out_path.name} {len(mono) / sample_rate:.0f}s audio,"
               f" {time.time() - started:.0f}s elapsed", flush=True)

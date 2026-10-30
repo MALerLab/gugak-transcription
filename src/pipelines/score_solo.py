@@ -22,7 +22,7 @@ from src.transcribe.note_ify import notes_from_f0
 
 def score_clip(clip: dict, config, mono=None) -> tuple[dict, list[dict]]:
     """Note-ify one clip and score it. Returns (clip row, 시김새 rows)."""
-    tracker, evaluate_config = active_f0_tracker(config.features.f0), config.evaluate.transcription
+    tracker, evaluate_config = active_f0_tracker(config), config.evaluate.transcription
     track = dict(np.load(f0_path(config.run.f0_dir, clip["clip_id"])))
     if mono is None:
         mono = load_mono_resampled(clip["clip_path"], tracker.model_sample_rate)

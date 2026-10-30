@@ -1,0 +1,6 @@
+# YIN f0 tracker, used by src/features/f0/yin.py
+window_seconds: 0.046
+hop_seconds: 0.01
+fmin_hz: 40
+fmax_hz: 1600
+threshold: 0.15        # CMND dip below this = voiced

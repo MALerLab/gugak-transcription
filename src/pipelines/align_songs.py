@@ -21,7 +21,7 @@ from src.datasets.six_dragon import list_musicxml_pieces
 from src.evaluate.alignment import measure_part
 from src.features import chroma
 from src.notes.musicxml import musicxml_to_note_table
-from src.pipelines.common import load_run_config
+from src.pipelines.common import active_f0_tracker, load_run_config
 
 
 def process_song(row: dict, config) -> tuple[list[dict], dict]:
@@ -66,7 +66,7 @@ def process_song(row: dict, config) -> tuple[list[dict], dict]:
     quality_rows = []
     for part in parts:
         for q_row in measure_part(part, stems[part], chroma.FEATURE_SAMPLE_RATE, timed, config.evaluate.alignment,
-                                  config.features.f0, config.features.onsets):
+                                  config.run.f0_tracker, active_f0_tracker(config), config.features.onsets):
             quality_rows.append({"song_id": row["song_id"], "piece": row["piece"], **q_row})
     summary = {"song_id": row["song_id"], "piece": row["piece"], "audio_seconds": audio_seconds,
                "section_start_quarter": section.start_quarter, "section_end_quarter": section.end_quarter,

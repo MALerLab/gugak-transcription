@@ -195,7 +195,7 @@ def notes_from_f0(track: dict, mono: np.ndarray, sample_rate: int, hop_seconds: 
     """Run the whole note-ify step on one f0 track.
 
     Args:
-        track: ``time``, ``f0_hz``, ``confidence`` arrays from src/features/f0.py.
+        track: ``time``, ``f0_hz``, ``confidence`` arrays from src/features/f0/.
         mono: the same audio the f0 was tracked on (for energy).
         sample_rate: its sample rate.
         hop_seconds: the f0 hop.

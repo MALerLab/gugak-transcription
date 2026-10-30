@@ -1,6 +1,6 @@
 """Alignment-quality numbers: does each aligned note line up with what the stem plays?
 
-- **pitch hit rate**: the stem's f0 (YIN by default, ``f0_tracker`` in config) in the middle of a note is within half a semitone
+- **pitch hit rate**: the stem's f0 (YIN in exp001, ``run.f0_tracker`` in config) in the middle of a note is within half a semitone
   of the note's pitch. Monophonic stems only make sense here (대금, 피리, 해금, 아쟁);
   plucked 가야금/거문고 are reported too, with that caveat.
 - **onset F-measure**: note onsets vs spectral-flux onsets detected in the stem.
@@ -62,7 +62,7 @@ def onset_f_measure(reference: np.ndarray, estimated: np.ndarray, tolerance: flo
 
 
 def measure_part(part: str, stem: np.ndarray, sample_rate: int, timed_by_method: dict[str, pd.DataFrame],
-                 config, f0_config, onsets_config) -> list[dict]:
+                 config, f0_tracker: str, f0_config, onsets_config) -> list[dict]:
     """Pitch hit rate + onset F for one stem, for every timing method and the chance level.
 
     Args:
@@ -71,10 +71,11 @@ def measure_part(part: str, stem: np.ndarray, sample_rate: int, timed_by_method:
         sample_rate: its rate.
         timed_by_method: method name → aligned note table (must include ``per_song``).
         config: the `configs/evaluate/alignment.yaml` settings.
-        f0_config: the `configs/features/f0.yaml` settings.
+        f0_tracker: the tracker to run (``yin`` in exp001).
+        f0_config: that tracker's `configs/features/f0/<tracker>.yaml` settings.
         onsets_config: the `configs/features/onsets.yaml` settings.
     """
-    tracked = track_f0(stem, sample_rate, f0_config)
+    tracked = track_f0(stem, sample_rate, f0_tracker, f0_config)
     f0, times = tracked["f0_hz"], tracked["time"]
     detected_onsets = spectral_flux_onsets(stem, sample_rate, onsets_config.spectral_flux)
 

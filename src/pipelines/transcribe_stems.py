@@ -22,7 +22,7 @@ from src.transcribe.note_ify import notes_from_f0
 
 def transcribe_stem(stem: dict, config) -> dict:
     """Note-ify one stem, write its MIDI, return its diagnostics row."""
-    run, tracker = config.run, active_f0_tracker(config.features.f0)
+    run, tracker = config.run, active_f0_tracker(config)
     track = dict(np.load(f0_path(run.f0_dir, stem["stem_id"])))
     mono = load_mono_resampled(stem["stem_path"], tracker.model_sample_rate)
     result = notes_from_f0(track, mono, tracker.model_sample_rate, tracker.hop_seconds, config.transcribe.note_ify,

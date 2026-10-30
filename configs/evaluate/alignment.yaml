@@ -1,5 +1,5 @@
 # Alignment-quality numbers, used by src/evaluate/alignment.py
-# (f0 settings in configs/features/f0.yaml, onsets in configs/features/onsets.yaml)
+# (f0 settings in configs/features/f0/<tracker>.yaml, onsets in configs/features/onsets.yaml)
 
 # A note's f0 = median over the voiced frames in the middle of the note
 note_core_fraction: [0.2, 0.8]

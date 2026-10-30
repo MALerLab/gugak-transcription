@@ -11,9 +11,9 @@ def load_run_config(config_path: str | Path) -> DictConfig:
     return OmegaConf.load(config_path)
 
 
-def active_f0_tracker(f0_config) -> DictConfig:
-    """The settings section of the tracker ``f0_config.f0_tracker`` names (hop, sample rate, …)."""
-    return f0_config[f0_config.f0_tracker]
+def active_f0_tracker(config) -> DictConfig:
+    """The recipe of the tracker ``run.f0_tracker`` names (hop, sample rate, …), from ``features.f0``."""
+    return config.features.f0[config.run.f0_tracker]
 
 
 def f0_path(out_dir: str | Path, file_id: str) -> Path:

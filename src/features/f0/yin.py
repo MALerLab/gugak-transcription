@@ -1,35 +1,23 @@
-"""f0 tracking: mono audio → pitch curve + per-frame confidence.
-
-The tracker is picked by ``f0_tracker`` in the calling config: ``yin`` (strand A's alignment
-check) or ``crepe`` (strand B). pYIN and PESTO are planned (prof mtg 2026-10-26), not here yet.
-"""
+"""YIN f0 tracker (de Cheveigné & Kawahara 2002): an algorithm, no model. Strand A's alignment check."""
 from __future__ import annotations
 
 import numpy as np
 
-F0_TRACKERS = ("yin", "crepe")
 
-
-def track_f0(mono: np.ndarray, sample_rate: int, config) -> dict[str, np.ndarray]:
-    """Run the tracker named by ``config.f0_tracker``, with its own section of the config.
+def yin_track(mono: np.ndarray, sample_rate: int, config) -> dict[str, np.ndarray]:
+    """YIN on mono audio, as an f0 track.
 
     Args:
         mono: mono float audio.
         sample_rate: its rate.
-        config: the `configs/features/f0.yaml` settings.
+        config: the `configs/features/f0/yin.yaml` settings.
 
     Returns:
         dict with ``time`` (s), ``f0_hz`` and ``confidence``, one value per hop. YIN has no
         confidence: its ``f0_hz`` is NaN where unvoiced, and ``confidence`` is 1 where voiced.
     """
-    if config.f0_tracker == "yin":
-        f0_hz, time = yin_f0(mono, sample_rate, config.yin)
-        return {"time": time, "f0_hz": f0_hz, "confidence": np.isfinite(f0_hz).astype(np.float32)}
-    if config.f0_tracker == "crepe":
-        if sample_rate != config.crepe.model_sample_rate:
-            raise ValueError(f"CREPE needs {config.crepe.model_sample_rate} Hz audio, got {sample_rate} Hz")
-        return crepe_f0(mono, config.crepe)
-    raise ValueError(f"unknown f0_tracker {config.f0_tracker!r}, expected one of {F0_TRACKERS}")
+    f0_hz, time = yin_f0(mono, sample_rate, config)
+    return {"time": time, "f0_hz": f0_hz, "confidence": np.isfinite(f0_hz).astype(np.float32)}
 
 
 def yin_f0(audio: np.ndarray, sample_rate: int, config) -> tuple[np.ndarray, np.ndarray]:
@@ -38,7 +26,7 @@ def yin_f0(audio: np.ndarray, sample_rate: int, config) -> tuple[np.ndarray, np.
     Args:
         audio: mono signal.
         sample_rate: its rate.
-        config: the ``yin`` section of `configs/features/f0.yaml`.
+        config: the `configs/features/f0/yin.yaml` settings.
     """
     window = int(config.window_seconds * sample_rate)
     hop = int(config.hop_seconds * sample_rate)
@@ -82,33 +70,3 @@ def yin_f0(audio: np.ndarray, sample_rate: int, config) -> tuple[np.ndarray, np.
             f0[idx[row]] = sample_rate / t
     times = (np.arange(num_frames) * hop + window / 2) / sample_rate
     return f0, times
-
-
-def crepe_f0(mono: np.ndarray, config) -> dict[str, np.ndarray]:
-    """Run torchcrepe on mono audio already at ``config.model_sample_rate``.
-
-    Args:
-        mono: mono float audio.
-        config: the ``crepe`` section of `configs/features/f0.yaml`.
-
-    Returns:
-        dict with ``time`` (s), ``f0_hz`` and ``confidence`` (CREPE periodicity, 0–1), one value per hop.
-    """
-    import torch  # imported here so YIN users don't pull in torch
-    import torchcrepe
-    # torchcrepe dithers its pitch output with scipy noise (numpy's global RNG); seeding per call
-    # makes each file's f0 reproducible, whatever order the files run in
-    np.random.seed(config.seed)
-    torch.manual_seed(config.seed)
-    hop_length = int(round(config.hop_seconds * config.model_sample_rate))
-    audio = torch.from_numpy(mono).float()[None]
-    f0_hz, confidence = torchcrepe.predict(
-        audio, config.model_sample_rate, hop_length,
-        fmin=config.fmin_hz, fmax=config.fmax_hz, model=config.model,
-        decoder=getattr(torchcrepe.decode, config.decoder),  # viterbi | weighted_argmax | argmax
-        return_periodicity=True, batch_size=config.batch_size, device=config.device,
-    )
-    f0_hz = f0_hz[0].cpu().numpy().astype(np.float32)
-    confidence = confidence[0].cpu().numpy().astype(np.float32)
-    time = np.arange(len(f0_hz), dtype=np.float32) * config.hop_seconds
-    return {"time": time, "f0_hz": f0_hz, "confidence": confidence}

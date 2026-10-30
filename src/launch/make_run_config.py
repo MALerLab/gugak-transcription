@@ -1,11 +1,11 @@
 """Build one run's full config from the recipes: experiments/<exp>/configs/<name>.yaml.
 
 Merges the module recipes a command ``uses`` (configs/<package>/<module>.yaml, nested as
-``<package>.<module>``), applies the command's ``overrides``, adds its ``run`` section, and
+``<package>.<module>``, deeper paths alike), applies the command's ``overrides``, adds its ``run`` section, and
 resolves every ``${...}``. Tweak the written file if needed; the command reads only that file.
 
 Usage: python -m src.launch.make_run_config <command> <experiment_folder_name> [--name <name>] [--set key=value ...]
-  e.g. python -m src.launch.make_run_config align_songs exp003_261029_pesto --set features.f0.f0_tracker=yin
+  e.g. python -m src.launch.make_run_config track_f0 exp005_261030_f0_trackers --set features.f0.crepe.model=tiny
 """
 from __future__ import annotations
 
@@ -24,10 +24,9 @@ def build_run_config(command: str, experiment: str, settings: list[str]):
     recipe = OmegaConf.load(CONFIGS_DIR / "pipelines" / f"{command}.yaml")
     config = OmegaConf.create()
     for module_path in recipe.uses:
-        package, module = module_path.split("/")
         module_config = OmegaConf.load(CONFIGS_DIR / f"{module_path}.yaml")
         module_config = OmegaConf.merge(module_config, recipe.overrides.get(module_path, {}))
-        OmegaConf.update(config, f"{package}.{module}", module_config)
+        OmegaConf.update(config, module_path.replace("/", "."), module_config)
     config.run = recipe.run
     config.run.artifacts_dir = str(STORAGE_EXPERIMENTS_DIR / experiment)
     config = OmegaConf.merge(config, OmegaConf.from_dotlist(settings))
