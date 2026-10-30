@@ -1,0 +1,23 @@
+# Run recipe for src/pipelines/score_piano_zero_shot.py
+# uses: module recipes merged in (configs/<path>.yaml) · run: this command's own settings
+# overrides: changes to the module recipes for this command
+# src/launch/make_run_config.py turns this into experiments/<exp>/configs/<name>.yaml; the run reads only that.
+uses: [transcribe/piano_transcription, evaluate/transcription, notes/midi, datasets/separation, datasets/instruments]
+run:
+  artifacts_dir: ???
+  device: cuda                    # pick the GPU with CUDA_VISIBLE_DEVICES at launch
+  limit_items_per_answer_key: 0   # >0: only the first N items of each answer key (smoke test); 0 = all
+  six_dragon:
+    quality_table: ???            # exp001's alignment_quality_by_song.parquet (usable, split)
+    match_table: ???              # exp001's match_table.parquet (stems_with_part)
+    midi_dir: ???                 # exp001's aligned_midi/per_stem (per-song labels are dropped)
+    splits: [val, test]           # frozen split; train is kept for fine-tuning
+  solo:
+    clips_table: ???              # exp002's solo_clips.parquet
+    partition: test               # exp002's dev/test split by piece
+    reference_check_table: ???    # exp002's scores for that partition (reference_transposition per clip)
+    max_reference_transposition: 1  # larger whole-clip gaps = broken reference (octave errors), left out
+  midi_dir: ${run.artifacts_dir}/midi
+  note_tables_dir: ${run.artifacts_dir}/note_tables
+  scores_table: ${run.artifacts_dir}/tables/scores.parquet
+overrides: {}

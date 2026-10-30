@@ -12,9 +12,14 @@ from src.notes.midi import midi_to_note_table
 from src.notes.table import note_table_to_frames
 
 
-def reference_notes(midi_path: str) -> tuple[np.ndarray, np.ndarray]:
-    """(intervals in s, pitches as MIDI numbers) of every note in a MIDI file, sorted by onset."""
+def reference_notes(midi_path: str, part: str | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """(intervals in s, pitches as MIDI numbers) of every note in a MIDI file, sorted by onset.
+
+    ``part`` keeps only that track (by name); None keeps every track.
+    """
     table = midi_to_note_table(midi_path)
+    if part is not None:
+        table = table[table["part"] == part]
     start = table["start"].to_numpy()
     intervals = np.stack([start, np.maximum(start + table["duration"].to_numpy(), start + 1e-3)], axis=1).reshape(-1, 2)
     return intervals, table["pitch"].to_numpy(dtype=float)
@@ -78,6 +83,15 @@ def note_scores(reference_intervals, reference_pitches, estimate_intervals, esti
         onset_tolerance=config.lenient_onset_tolerance_seconds, pitch_tolerance=config.pitch_tolerance_cents,
         offset_ratio=None)
     return scores
+
+
+def onset_only_scores(reference_intervals, estimate_intervals, config) -> dict:
+    """Note onsets matched by time alone, pitch ignored: does the model hear that a note starts at all."""
+    if len(reference_intervals) == 0 or len(estimate_intervals) == 0:
+        return {"onset_only_precision": 0.0, "onset_only_recall": 0.0, "onset_only_f1": 0.0}
+    f1, precision, recall = mir_eval.onset.f_measure(np.sort(reference_intervals[:, 0]), np.sort(estimate_intervals[:, 0]),
+                                                     window=config.onset_tolerance_seconds)
+    return {"onset_only_precision": precision, "onset_only_recall": recall, "onset_only_f1": f1}
 
 
 def sigimsae_breakdown(sigimsae_json: str, reference_intervals, reference_pitches,

@@ -1,0 +1,75 @@
+# score_piano_zero_shot run config, built from configs/ by src/launch/make_run_config.py
+transcribe:
+  piano_transcription:
+    checkpoint_path: storage/weights/kong2021_piano_transcription/CRNN_note_F1=0.9677_pedal_F1=0.9186.pth
+    model_type: Note_pedal
+    segment_seconds: 10.0
+    onset_threshold: 0.3
+    offset_threshold: 0.3
+    frame_threshold: 0.1
+    pedal_offset_threshold: 0.2
+evaluate:
+  transcription:
+    onset_tolerance_seconds: 0.05
+    pitch_tolerance_cents: 50.0
+    offset_ratio: 0.2
+    lenient_onset_tolerance_seconds: 0.1
+notes:
+  midi:
+    score_velocity: 80
+    gm_programs:
+      daegeum: 77
+      piri: 111
+      haegeum: 110
+      ajaeng: 42
+      gayageum: 107
+      geomungo: 106
+    pitch_bend_range_semitones: 12
+    pitch_bend_min_step_cents: 3.0
+datasets:
+  separation:
+    metadata_csv: data/gugak_ensemble_71955/metadata.csv
+    ingest_dir: data/gugak_ensemble_71955/ingest
+    eval_manifest: manifests/separation/eval_manifest.parquet
+    source_manifest: manifests/separation/source_manifest_v2.parquet
+    jeongak_songs:
+      genre_major: 정악
+    pick_stems:
+      genre_major: 민속악
+      genre_subs:
+      - 산조
+      - 대풍류
+      instruments:
+      - daegeum
+      - piri
+      - haegeum
+      - ajaeng
+      - gayageum
+      - geomungo
+  instruments:
+    english_names:
+      대금: daegeum
+      피리: piri
+      해금: haegeum
+      아쟁: ajaeng
+      가야금: gayageum
+      거문고: geomungo
+run:
+  artifacts_dir: storage/experiments/exp003_261028_zeroshot
+  device: cuda
+  limit_items_per_answer_key: 0
+  six_dragon:
+    quality_table: storage/experiments/exp001_261022_strand_a_pilot/tables/alignment_quality_by_song.parquet
+    match_table: storage/experiments/exp001_261022_strand_a_pilot/tables/match_table.parquet
+    midi_dir: storage/experiments/exp001_261022_strand_a_pilot/aligned_midi/per_stem
+    splits:
+    - val
+    - test
+  solo:
+    clips_table: storage/experiments/exp002_261022_strand_b_pilot/tables/solo_clips.parquet
+    partition: test
+    reference_check_table: storage/experiments/exp002_261022_strand_b_pilot/tables/solo_eval/test_stability_clips.parquet
+    max_reference_transposition: 1
+  midi_dir: storage/experiments/exp003_261028_zeroshot/midi
+  note_tables_dir: storage/experiments/exp003_261028_zeroshot/note_tables
+  scores_table: storage/experiments/exp003_261028_zeroshot/tables/scores.parquet

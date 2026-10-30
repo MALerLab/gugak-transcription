@@ -1,0 +1,14 @@
+# Piano transcription (Kong et al. 2021, piano_transcription_inference), used by src/transcribe/piano_transcription.py
+# Weights: Zenodo record 4034264 (CC BY 4.0), "CRNN_note_F1=0.9677_pedal_F1=0.9186.pth",
+# md5 22b961b77c1878239fec963362097045. Trained on MAESTRO piano only.
+checkpoint_path: storage/weights/kong2021_piano_transcription/CRNN_note_F1=0.9677_pedal_F1=0.9186.pth
+model_type: Note_pedal    # the class the checkpoint was saved from (note model + pedal model)
+
+# Inference: audio is cut into overlapping segments of this length (the training segment length)
+segment_seconds: 10.0
+
+# Post-processing thresholds: the package's own defaults, unchanged (zero-shot = no tuning)
+onset_threshold: 0.3
+offset_threshold: 0.3
+frame_threshold: 0.1
+pedal_offset_threshold: 0.2

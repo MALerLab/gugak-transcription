@@ -1,0 +1,9 @@
+ M pyproject.toml
+ M src/evaluate/transcription.py
+ M uv.lock
+?? configs/pipelines/score_piano_zero_shot.yaml
+?? configs/transcribe/piano_transcription.yaml
+?? experiments/exp003_261028_zeroshot/
+?? src/datasets/answer_keys.py
+?? src/pipelines/score_piano_zero_shot.py
+?? src/transcribe/piano_transcription.py
