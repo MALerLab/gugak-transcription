@@ -1,0 +1,25 @@
+# Run recipe for src/pipelines/audit_label_timing.py
+# uses: module recipes merged in (configs/<path>.yaml) · run: this command's own settings
+# overrides: changes to the module recipes for this command
+# src/launch/make_run_config.py turns this into experiments/<exp>/configs/<name>.yaml; the run reads only that.
+uses: [features/f0/pesto, features/onsets, evaluate/label_timing, datasets/separation, datasets/instruments]
+run:
+  artifacts_dir: ???
+  f0_tracker: pesto               # stock PESTO: exp005's best all-rounder
+  onset_sample_rate: 22050        # spectral-flux onsets at exp001's alignment-check rate
+  limit_items: 0                  # >0: only the first N items of each label set (smoke test); 0 = all
+  six_dragon:
+    quality_table: ???            # exp001's alignment_quality_by_song.parquet (usable, split)
+    match_table: ???              # exp001's match_table.parquet (stems_with_part)
+    label_sets:                   # label set name → exp001's aligned MIDI folder
+      per_stem: ???
+      per_song: ???
+    splits: [train, val, test]    # every split: the train labels are what a fine-tune would learn from
+  solo:                           # the control: timed independently of exp001
+    clips_table: ???              # exp002's solo_clips.parquet
+    partition: test               # exp002's dev/test split by piece
+    reference_check_table: ???    # exp002's scores for that partition (reference_transposition per clip)
+    max_reference_transposition: 1  # larger whole-clip gaps = broken reference (octave errors), left out
+  f0_dir: ${run.artifacts_dir}/f0
+  tables_dir: ${run.artifacts_dir}/tables
+overrides: {}

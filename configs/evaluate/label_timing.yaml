@@ -1,0 +1,18 @@
+# Label timing: shift the reference notes against the audio, find where they fit best. Used by src/evaluate/label_timing.py
+shift_range_seconds: [-0.3, 0.3]  # tested shifts of the reference, in steps of the f0 hop (10 ms); negative = earlier
+pitch_tolerance_cents: 50.0       # MIREX standard, as in evaluate/f0.yaml
+
+# Pitch judge: which frames carry a reference pitch (same rule as evaluate/f0.yaml, but whole notes:
+# the timing evidence sits at the note edges, which f0.yaml leaves out on purpose)
+pitch_reference:
+  note_core_fraction: [0.0, 1.0]
+  min_note_seconds: 0.0
+
+# Steady vs wandering: the best shift per window of each item
+window_seconds: 30.0
+min_window_scored_seconds: 5.0    # a window needs this much scored audio…
+min_window_pitch_changes: 10      # …and this many reference pitch changes to count
+
+# Onset judge: reference note starts vs spectral-flux onsets (features/onsets.yaml), plucked instruments only
+onset_tolerance_seconds: 0.025    # tight, so the F-measure peaks sharply at the right shift
+onset_instruments: [gayageum, geomungo]
