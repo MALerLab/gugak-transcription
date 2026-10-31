@@ -2,9 +2,10 @@
 # uses: module recipes merged in (configs/<path>.yaml) · run: this command's own settings
 # overrides: changes to the module recipes for this command
 # src/launch/make_run_config.py turns this into experiments/<exp>/configs/<name>.yaml; the run reads only that.
-uses: [transcribe/piano_transcription, evaluate/transcription, notes/midi, datasets/separation, datasets/instruments]
+uses: [transcribe/piano_transcription, transcribe/onsets_frames, evaluate/transcription, notes/midi, datasets/separation, datasets/instruments]
 run:
   artifacts_dir: ???
+  transcriber: ???                # piano_transcription (Kong et al. 2021) | onsets_frames (Hawthorne et al. 2018)
   device: cuda                    # pick the GPU with CUDA_VISIBLE_DEVICES at launch
   limit_items_per_answer_key: 0   # >0: only the first N items of each answer key (smoke test); 0 = all
   six_dragon:

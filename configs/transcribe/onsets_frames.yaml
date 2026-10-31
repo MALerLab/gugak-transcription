@@ -1,0 +1,24 @@
+# Onsets and Frames (Hawthorne et al. 2018), Jong Wook Kim's PyTorch reimplementation, used by src/transcribe/onsets_frames.py
+# Code: github.com/jongwook/onsets-and-frames (MIT), commit 783ca08498bb8ada41516c9ed492868b4e947abf; the architecture is copied into src/.
+# Weights: "model-500000.pt", MAESTRO piano, 500k steps, shared by the author in the repo's issues #17 / #23 (Google Drive
+# file 1Mj2Em07Lvl3mvDQCCxOYHjPiB-S0WGT1). A whole pickled model from PyTorch ≈ 1.0; read as tensors only.
+checkpoint_path: storage/weights/onsets_frames_maestro/model-500000.pt
+checkpoint_md5: 5cdfbfc3cd1d1298a2891640baf6fa68
+
+# Fixed by the trained model (the repo's constants.py): don't change
+model_complexity: 48
+sample_rate: 16000
+hop_length: 512            # 32 ms frames
+window_length: 2048
+mel_bands: 229
+mel_min_hz: 30
+mel_max_hz: 8000
+min_midi: 21               # piano keys A0..C8 = the 88 outputs
+max_midi: 108
+
+# Inference: each LSTM direction runs over this many frames at a time, carrying its state (the repo's default)
+lstm_inference_chunk_frames: 512
+
+# Note decoding thresholds: the repo's transcribe.py defaults, unchanged (zero-shot = no tuning)
+onset_threshold: 0.5
+frame_threshold: 0.5

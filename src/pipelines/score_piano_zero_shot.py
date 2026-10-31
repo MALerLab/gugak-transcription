@@ -1,4 +1,7 @@
-"""Command: transcribe gugak audio with the piano-pretrained model as-is, and score it against both answer keys.
+"""Command: transcribe gugak audio with a piano-pretrained model as-is, and score it against both answer keys.
+
+``run.transcriber`` picks the model (src/transcribe/): ``piano_transcription`` (Kong et al. 2021) or
+``onsets_frames`` (Hawthorne et al. 2018).
 
 Answer keys (src/datasets/answer_keys.py): six dragon = exp001's per-stem aligned MIDI on single
 stems; solo = solo clips against their own MIDI. Writes one MIDI file + one note table per item,
@@ -12,6 +15,7 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+from omegaconf import OmegaConf
 from tqdm import tqdm
 
 from src.audio.io import load_mono_resampled
@@ -19,7 +23,7 @@ from src.datasets.answer_keys import six_dragon_stem_pairs, solo_clip_pairs
 from src.evaluate.transcription import estimated_notes, note_scores, onset_only_scores, reference_notes
 from src.notes.midi import note_table_to_midi
 from src.pipelines.common import load_run_config
-from src.transcribe.piano_transcription import MODEL_SAMPLE_RATE, load_piano_transcription, transcribe_audio
+from src.transcribe import make_transcriber
 
 
 def list_items(config) -> pd.DataFrame:
@@ -46,15 +50,17 @@ def score_item(item: dict, notes: pd.DataFrame, evaluate_config) -> dict:
 def transcribe_and_score(items: pd.DataFrame, config) -> pd.DataFrame:
     """Transcribe every item's audio, write its MIDI + note table, and score it."""
     run = config.run
-    transcriptor = load_piano_transcription(config.transcribe.piano_transcription, run.device)
+    # exp003's run config predates run.transcriber; it ran Kong et al. 2021
+    transcriber = OmegaConf.select(config, "run.transcriber", default="piano_transcription")
+    sample_rate, transcribe = make_transcriber(transcriber, config.transcribe[transcriber], run.device)
     gm_programs = dict(config.notes.midi.gm_programs)
     rows = []
     for item in tqdm(items.to_dict("records"), desc="transcribe", mininterval=30):
-        audio = load_mono_resampled(item["audio_path"], MODEL_SAMPLE_RATE)
-        notes = transcribe_audio(transcriptor, audio, item["instrument"])
+        audio = load_mono_resampled(item["audio_path"], sample_rate)
+        notes = transcribe(audio, item["instrument"])
         notes.to_parquet(Path(run.note_tables_dir) / item["answer_key"] / f"{item['item_id']}.parquet")
         note_table_to_midi(notes, Path(run.midi_dir) / item["answer_key"] / f"{item['item_id']}.mid", gm_programs)
-        rows.append({**item, "duration_seconds": len(audio) / MODEL_SAMPLE_RATE,
+        rows.append({**item, "duration_seconds": len(audio) / sample_rate,
                      **score_item(item, notes, config.evaluate.transcription)})
     return pd.DataFrame(rows)
 
