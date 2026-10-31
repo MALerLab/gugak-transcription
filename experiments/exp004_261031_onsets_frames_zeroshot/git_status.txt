@@ -1,0 +1,6 @@
+ M configs/pipelines/score_piano_zero_shot.yaml
+ M src/pipelines/score_piano_zero_shot.py
+ M src/transcribe/__init__.py
+?? configs/transcribe/onsets_frames.yaml
+?? experiments/exp004_261031_onsets_frames_zeroshot/
+?? src/transcribe/onsets_frames.py
