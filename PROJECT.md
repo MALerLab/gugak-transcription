@@ -109,6 +109,11 @@
 - **per-song alignment** — one warping path from a partial sum-stem (only the stems that have
   a score part), applied to every part.
 - **per-stem alignment** — one warping path per stem, from that stem and its own part only.
+- **six dragon MIDI** — exp001's MIDI: six dragon MusicXML aligned to the separation dataset's
+  stems by per-stem alignment, at sounding pitch. One `.mid` per matched song (87; 69 usable), in
+  `storage/experiments/exp001_261022_strand_a_pilot/aligned_midi/per_stem/`. Strand A's labels;
+  its val + test part is the six dragon answer key (exp003–exp005). The six dragon dataset itself
+  has no MIDI. The per-song version (`aligned_midi/per_song/`) is dropped (2026-10-26).
 - **song** — one recording in the separation dataset = one `ingest/<song>/` folder. Often only
   part of a piece (e.g. one 장).
 - **score** — one six dragon MusicXML file = one complete piece (for a suite, one movement).
