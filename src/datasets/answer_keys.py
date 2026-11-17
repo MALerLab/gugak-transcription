@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from src.datasets.separation import nfc, song_stem_paths
@@ -39,6 +40,26 @@ def six_dragon_stem_pairs(quality_table: str, match_table: str, midi_dir: str, s
                          "instrument": instrument, "split": song["split"], "audio_path": str(stem_path),
                          "reference_midi_path": str(Path(midi_dir) / f"{song_id}.mid"), "reference_part": instrument})
     return pd.DataFrame(rows)
+
+
+def six_dragon_grace_windows(aligned_cache_dir: str, song_id: str, part: str, seconds_before: float,
+                             seconds_after: float) -> np.ndarray:
+    """``(n, 2)`` time windows in seconds around the grace notes of one song's part, from exp001's per-stem note table.
+
+    exp001 wrote each grace note (시김새 acciaccatura) as a made-up fixed-length note and started its main
+    note that much later (src/notes/table.py), so neither timing comes from the audio. Training and
+    scoring leave these windows out: what sounds there is neither taught nor graded.
+
+    Args:
+        aligned_cache_dir: exp001's ``cache/aligned/`` (``<song>_per_stem.parquet``, with ``is_grace``).
+        song_id: separation dataset song.
+        part: instrument (= MusicXML part name).
+        seconds_before: window start before the grace note's start.
+        seconds_after: window end after the grace note's start (covers the grace note and the main note's start).
+    """
+    table = pd.read_parquet(Path(aligned_cache_dir) / f"{song_id}_per_stem.parquet", columns=["part", "is_grace", "start"])
+    starts = np.unique(table.loc[table["is_grace"] & (table["part"] == part), "start"].to_numpy())
+    return np.stack([starts - seconds_before, starts + seconds_after], axis=1).reshape(-1, 2)
 
 
 def solo_clip_pairs(clips_table: str, partition: str, reference_check_table: str,

@@ -1,0 +1,22 @@
+# Fine-tuning Onsets and Frames on single stems, used by src/transcribe/onsets_frames_training.py
+# and src/pipelines/finetune_onsets_frames.py. Starts from the MAESTRO weights (configs/transcribe/onsets_frames.yaml).
+seed: 42
+# Labels: the repo's onset_length / offset_length (32 ms) = 1 frame at its 32 ms hop
+onset_label_frames: 1
+offset_label_frames: 1
+# Batches: the repo's training defaults (8 segments of 327,680 samples = 20.48 s at 16 kHz)
+batch_size: 8
+segment_frames: 640
+# Optimiser: Adam; the repo trained from scratch at 6e-4, fine-tuning starts lower
+learning_rate: 1.0e-4
+# Step decay (the repo's scheme): multiply the learning rate by `decay_rate` every `decay_steps`; rate 1.0 = constant
+learning_rate_decay_steps: 10000
+learning_rate_decay_rate: 1.0
+clip_gradient_norm: 3.0     # the repo's default
+# Loss: the repo's three note heads at equal weight; no velocity loss (the six dragon MIDI's velocity is a constant)
+loss_weights: {onset: 1.0, offset: 1.0, frame: 1.0}
+# Length: validate every N steps, keep the best val score, stop after `patience` validations without a gain
+max_steps: 20000
+validate_every_steps: 500
+patience: 6
+log_every_steps: 50

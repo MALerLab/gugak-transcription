@@ -32,6 +32,20 @@ def estimated_notes(notes: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     return intervals, notes["pitch"].to_numpy(dtype=float)
 
 
+def drop_notes_starting_in_windows(intervals: np.ndarray, pitches: np.ndarray,
+                                   windows: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The notes whose onset falls in none of the ``(start, end)`` windows (seconds).
+
+    Applied to the reference and the estimate alike, so nothing starting in a window is graded either way.
+    """
+    windows = np.asarray(windows).reshape(-1, 2)
+    if len(windows) == 0 or len(pitches) == 0:
+        return intervals, pitches
+    onsets = intervals[:, 0]
+    inside = ((onsets[:, None] >= windows[None, :, 0]) & (onsets[:, None] < windows[None, :, 1])).any(axis=1)
+    return intervals[~inside], pitches[~inside]
+
+
 def reference_transposition(reference_intervals: np.ndarray, reference_pitches: np.ndarray,
                             semitones: np.ndarray, voiced: np.ndarray, hop_seconds: float) -> int:
     """Median whole-semitone gap between the tracked pitch and the reference MIDI where both sound.
@@ -92,6 +106,20 @@ def onset_only_scores(reference_intervals, estimate_intervals, config) -> dict:
     f1, precision, recall = mir_eval.onset.f_measure(np.sort(reference_intervals[:, 0]), np.sort(estimate_intervals[:, 0]),
                                                      window=config.onset_tolerance_seconds)
     return {"onset_only_precision": precision, "onset_only_recall": recall, "onset_only_f1": f1}
+
+
+def masked_and_unmasked_scores(reference_intervals, reference_pitches, estimate_intervals, estimate_pitches,
+                               windows: np.ndarray, config) -> dict:
+    """One item's note and onset-only scores twice: over every note, and with notes starting in ``windows`` left out (``*_masked``)."""
+    scores = {"reference_note_count": len(reference_pitches), "estimated_note_count": len(estimate_pitches),
+              **note_scores(reference_intervals, reference_pitches, estimate_intervals, estimate_pitches, config),
+              **onset_only_scores(reference_intervals, estimate_intervals, config)}
+    kept_reference = drop_notes_starting_in_windows(reference_intervals, reference_pitches, windows)
+    kept_estimate = drop_notes_starting_in_windows(estimate_intervals, estimate_pitches, windows)
+    masked = {"reference_note_count": len(kept_reference[1]), "estimated_note_count": len(kept_estimate[1]),
+              **note_scores(*kept_reference, *kept_estimate, config),
+              **onset_only_scores(kept_reference[0], kept_estimate[0], config)}
+    return {**scores, **{f"{name}_masked": value for name, value in masked.items()}}
 
 
 def sigimsae_breakdown(sigimsae_json: str, reference_intervals, reference_pitches,

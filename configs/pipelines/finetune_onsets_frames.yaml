@@ -1,0 +1,24 @@
+# Run recipe for src/pipelines/finetune_onsets_frames.py
+# uses: module recipes merged in (configs/<path>.yaml) · run: this command's own settings
+# overrides: changes to the module recipes for this command
+# src/launch/make_run_config.py turns this into experiments/<exp>/configs/<name>.yaml; the run reads only that.
+uses: [transcribe/onsets_frames, transcribe/onsets_frames_training, evaluate/transcription, datasets/answer_keys,
+       datasets/separation, datasets/instruments]
+run:
+  artifacts_dir: ???
+  device: cuda                    # pick the GPU with CUDA_VISIBLE_DEVICES at launch
+  num_workers: 16                 # processes resampling audio into the cache
+  limit_items: 0                  # >0: only the first N train and val stems (smoke test); 0 = all
+  train_splits: [train]           # frozen split
+  validation_splits: [val]        # picks the best weights; test is scored once, after training
+  selection_metric: onset_f1_masked  # onset F1 with the grace-note windows left out, mean of instrument means
+  validation_onset_threshold: null   # decode val at this onset threshold; null = the recipe's (0.5)
+  six_dragon:
+    quality_table: ???            # exp001's alignment_quality_by_song.parquet (usable, split)
+    match_table: ???              # exp001's match_table.parquet (stems_with_part)
+    midi_dir: ???                 # exp001's aligned_midi/per_stem = the six dragon MIDI
+    aligned_cache_dir: ???        # exp001's cache/aligned (per-stem note tables with is_grace)
+  audio_cache_dir: ???            # mono 16 kHz .npy per item, shared across runs
+  weights_dir: ${run.artifacts_dir}/weights
+  tables_dir: ${run.artifacts_dir}/tables
+overrides: {}

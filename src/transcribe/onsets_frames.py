@@ -214,7 +214,10 @@ class LogMel(nn.Module):
 
 
 class OnsetsFramesTranscriber:
-    """Mel front end + model + note decoding, with the recipe's settings."""
+    """Mel front end + model + note decoding, with the recipe's settings.
+
+    Loads the MAESTRO weights, or fine-tuned ones when ``config.finetuned_weights_path`` is set.
+    """
 
     def __init__(self, config, device: str):
         self.config, self.device = config, torch.device(device)
@@ -222,16 +225,28 @@ class OnsetsFramesTranscriber:
         self.model = load_onsets_frames(config).to(self.device).eval()
 
     @torch.no_grad()
-    def __call__(self, audio: np.ndarray, part: str) -> pd.DataFrame:
-        """Note table of mono audio at ``config.sample_rate`` (columns part, pitch, velocity, start, duration)."""
+    def predict(self, audio: np.ndarray) -> dict[str, np.ndarray]:
+        """The model's onset, offset, frame and velocity outputs, each ``(frames, keys)``, for mono audio at ``config.sample_rate``."""
         samples = torch.from_numpy(np.clip(audio, -1.0, 1.0).astype(np.float32)).to(self.device)
         mel = self.log_mel(samples[None, :-1])  # the repo drops the last sample before the STFT
-        onset, _, _, frame, velocity = self.model(mel)
-        return decode_notes(onset[0].cpu().numpy(), frame[0].cpu().numpy(), velocity[0].cpu().numpy(), part, self.config)
+        onset, offset, _, frame, velocity = self.model(mel)
+        return {name: output[0].cpu().numpy() for name, output in
+                (("onset", onset), ("offset", offset), ("frame", frame), ("velocity", velocity))}
+
+    def __call__(self, audio: np.ndarray, part: str) -> pd.DataFrame:
+        """Note table of mono audio at ``config.sample_rate`` (columns part, pitch, velocity, start, duration)."""
+        outputs = self.predict(audio)
+        return decode_notes(outputs["onset"], outputs["frame"], outputs["velocity"], part, self.config)
 
 
-def load_onsets_frames(config) -> OnsetsAndFrames:
-    """The pretrained model, after checking the checkpoint's md5 and loading every weight with strict key matching.
+def build_onsets_frames(config) -> OnsetsAndFrames:
+    """The architecture with the recipe's sizes, untrained."""
+    return OnsetsAndFrames(config.mel_bands, config.max_midi - config.min_midi + 1, config.model_complexity,
+                           config.lstm_inference_chunk_frames)
+
+
+def load_pretrained_onsets_frames(config) -> OnsetsAndFrames:
+    """The MAESTRO model, after checking the checkpoint's md5 and loading every weight with strict key matching.
 
     Args:
         config: the `configs/transcribe/onsets_frames.yaml` settings.
@@ -239,9 +254,18 @@ def load_onsets_frames(config) -> OnsetsAndFrames:
     checkpoint_md5 = hashlib.md5(Path(config.checkpoint_path).read_bytes()).hexdigest()
     if checkpoint_md5 != config.checkpoint_md5:
         raise RuntimeError(f"{config.checkpoint_path} has md5 {checkpoint_md5}, the recipe pins {config.checkpoint_md5}")
-    model = OnsetsAndFrames(config.mel_bands, config.max_midi - config.min_midi + 1, config.model_complexity,
-                            config.lstm_inference_chunk_frames)
+    model = build_onsets_frames(config)
     model.load_state_dict(read_pickled_weights(config.checkpoint_path), strict=True)
+    return model
+
+
+def load_onsets_frames(config) -> OnsetsAndFrames:
+    """The fine-tuned model if ``config.finetuned_weights_path`` is set (a state dict saved by training), else the MAESTRO one."""
+    finetuned_weights_path = config.get("finetuned_weights_path")
+    if not finetuned_weights_path:
+        return load_pretrained_onsets_frames(config)
+    model = build_onsets_frames(config)
+    model.load_state_dict(torch.load(finetuned_weights_path, map_location="cpu", weights_only=True), strict=True)
     return model
 
 

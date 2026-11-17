@@ -44,6 +44,19 @@ def load_mono_resampled(audio_path: str | Path, target_sample_rate: int,
     return mono.numpy()
 
 
+def load_mono_resampled_cached(audio_path: str | Path, target_sample_rate: int, cache_path: str | Path) -> np.ndarray:
+    """``load_mono_resampled`` of a whole file, kept as a float32 ``.npy`` at ``cache_path`` after the first read."""
+    cache_path = Path(cache_path)
+    if cache_path.exists():
+        return np.load(cache_path)
+    audio = load_mono_resampled(audio_path, target_sample_rate).astype(np.float32)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = cache_path.with_name(cache_path.name + ".partial.npy")
+    np.save(temporary_path, audio)
+    temporary_path.replace(cache_path)  # never leave a half-written cache file behind
+    return audio
+
+
 def load_stem_mix(stem_paths: list[Path], start_seconds: float = 0.0,
                   duration_seconds: float | None = None) -> tuple[np.ndarray, int]:
     """Sum mono versions of several stems; returns (audio, sample rate) at the file rate.

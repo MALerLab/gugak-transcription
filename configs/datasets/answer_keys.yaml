@@ -1,0 +1,6 @@
+# Answer keys and training labels, used by src/datasets/answer_keys.py
+# Grace-note windows of the six dragon MIDI, left out of training and scoring (six_dragon_grace_windows).
+# exp001 gave each grace note a made-up 0.08 s (configs/notes/table.yaml) and started its main note that much later,
+# so the window covers the grace note, the main note's start and a margin either side.
+grace_window_seconds_before: 0.05
+grace_window_seconds_after: 0.18   # 0.08 s grace note + 0.10 s margin for where the main note's attack really lands

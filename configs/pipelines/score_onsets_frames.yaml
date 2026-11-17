@@ -1,0 +1,15 @@
+# Run recipe for src/pipelines/score_onsets_frames.py
+# uses: module recipes merged in (configs/<path>.yaml) · run: this command's own settings
+# overrides: changes to the module recipes for this command
+# src/launch/make_run_config.py turns this into experiments/<exp>/configs/<name>.yaml; the run reads only that.
+uses: [transcribe/onsets_frames, evaluate/transcription, notes/midi, datasets/answer_keys]
+run:
+  artifacts_dir: ???
+  predictions_dir: ???            # a predict_onsets_frames run's predictions_dir (items.parquet + .npz)
+  onset_thresholds_table: null    # per-instrument onset thresholds (tune_onsets_frames_thresholds); null = the recipe's one value
+  six_dragon:
+    aligned_cache_dir: ???        # exp001's cache/aligned (per-stem note tables with is_grace)
+  midi_dir: ${run.artifacts_dir}/midi
+  note_tables_dir: ${run.artifacts_dir}/note_tables
+  scores_table: ${run.artifacts_dir}/tables/scores.parquet
+overrides: {}
