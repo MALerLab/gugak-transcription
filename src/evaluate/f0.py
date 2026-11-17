@@ -63,6 +63,43 @@ def raw_pitch_and_chroma_accuracy(reference_midi: np.ndarray, f0_hz: np.ndarray,
             mir_eval.melody.raw_chroma_accuracy(voicing, reference_cents, voicing, estimate_cents, tolerance_cents))
 
 
+def reference_pitch_offset(reference_midi: np.ndarray, f0_hz: np.ndarray, tolerance_cents: float) -> dict:
+    """How a reference's written pitch sits against the tracked pitch, over the frames with a reference pitch.
+
+    - ``semitone_gap``: the most common whole-semitone gap, tracked − written (0 fine, ±1 a key-naming
+      clash or wrong notes, ±12 an octave error)
+    - ``residual_cents``: mean of what's left once that gap is taken out, over frames within half a
+      semitone of it: how far the recording sits off the reference's keys. A mean, not a median:
+      stock PESTO's output clusters on its 1/3-semitone bins, so a median lands on 0 or ±33 cents
+    - ``agreement`` / ``agreement_after_gap``: share of frames within ``tolerance_cents``, as written /
+      with the reference moved by ``semitone_gap``
+
+    Args:
+        reference_midi: reference pitch per frame (NaN = not scored), from ``reference_pitch_frames``.
+        f0_hz: tracked f0 per frame; NaN or 0 (unvoiced) count as misses, and don't vote on the gap.
+        tolerance_cents: how far off still counts as agreeing.
+    """
+    scored = np.isfinite(reference_midi)
+    f0_hz = np.nan_to_num(f0_hz, nan=0.0)
+    deviation = np.full(len(reference_midi), np.nan)
+    voiced = scored & (f0_hz > 0)
+    deviation[voiced] = 69 + 12 * np.log2(f0_hz[voiced] / 440.0) - reference_midi[voiced]
+    voted = deviation[np.isfinite(deviation)]
+    if len(voted) == 0:
+        return {"scored_frames": int(scored.sum()), "semitone_gap": np.nan, "residual_cents": np.nan,
+                "agreement": np.nan, "agreement_after_gap": np.nan}
+
+    # The gap = most common whole-semitone deviation; the residual = how far off the gap the recording sits
+    gaps, counts = np.unique(np.round(voted).astype(int), return_counts=True)
+    semitone_gap = int(gaps[np.argmax(counts)])
+    near_gap = voted[np.abs(voted - semitone_gap) < 0.5]
+    tolerance = tolerance_cents / 100.0
+    return {"scored_frames": int(scored.sum()), "semitone_gap": semitone_gap,
+            "residual_cents": float(np.mean(near_gap - semitone_gap) * 100),
+            "agreement": float((np.abs(deviation[scored]) < tolerance).sum() / scored.sum()),
+            "agreement_after_gap": float((np.abs(deviation[scored] - semitone_gap) < tolerance).sum() / scored.sum())}
+
+
 def f0_scores(reference_intervals: np.ndarray, reference_pitches: np.ndarray, track: dict, config) -> dict:
     """One item's f0 scores against its reference notes.
 

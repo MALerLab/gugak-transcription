@@ -4,7 +4,7 @@ labels_dir: data/gugak_solo_71470/labels
 midi_dir: data/gugak_solo_71470/midi
 # Solo genre codes for 민속악 instrumental music (inferred from piece names, the dataset ships no code table):
 # F01 = 민속 풍류 (서도풍류, 취타풍류), F02 = 산조, F03 = 시나위
-genre_codes: [F01, F02, F03]
+genre_codes: [F01, F02, F03]   # null = every genre
 # Same melodic instruments as the separation-dataset pick
 instruments: [daegeum, piri, haegeum, ajaeng, gayageum, geomungo]
 # Pieces (not clips) go to dev or test, so no piece is in both.

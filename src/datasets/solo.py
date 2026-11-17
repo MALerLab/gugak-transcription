@@ -33,7 +33,7 @@ def read_clip_label(label_path: Path) -> dict:
 
 
 def pick_solo_clips(config, instruments_config) -> pd.DataFrame:
-    """Solo clips of the configured genres and instruments, with a dev/test partition by piece.
+    """Solo clips of the configured genres (null = every genre) and instruments, with a dev/test partition by piece.
 
     Args:
         config: the `configs/datasets/solo.yaml` settings.
@@ -48,7 +48,10 @@ def pick_solo_clips(config, instruments_config) -> pd.DataFrame:
 
     labels = pd.DataFrame([read_clip_label(Path(config.labels_dir) / f"{clip_id}.json") for clip_id in clips["clip_id"]])
     clips = clips.merge(labels, on="clip_id", validate="one_to_one")
-    clips = clips[clips["genre_code"].isin(list(config.genre_codes))].copy()
+    # genre_codes null = every genre
+    if config.genre_codes is not None:
+        clips = clips[clips["genre_code"].isin(list(config.genre_codes))]
+    clips = clips.copy()
     clips["midi_path"] = [str(Path(config.midi_dir) / f"{clip_id}.mid") for clip_id in clips["clip_id"]]
     clips["partition"] = [piece_partition(p, config.dev_fraction, config.seed) for p in clips["piece"]]
     return clips.sort_values("clip_id").reset_index(drop=True)
