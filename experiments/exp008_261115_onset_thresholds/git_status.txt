@@ -1,0 +1,20 @@
+ M configs/transcribe/onsets_frames.yaml
+ M src/audio/io.py
+ M src/datasets/answer_keys.py
+ M src/evaluate/transcription.py
+ M src/pipelines/common.py
+ M src/transcribe/onsets_frames.py
+?? configs/datasets/answer_keys.yaml
+?? configs/pipelines/finetune_onsets_frames.yaml
+?? configs/pipelines/predict_onsets_frames.yaml
+?? configs/pipelines/score_onsets_frames.yaml
+?? configs/pipelines/tune_onsets_frames_thresholds.yaml
+?? configs/transcribe/onsets_frames_training.yaml
+?? experiments/exp007_261115_onsets_frames_finetune/
+?? experiments/exp008_261115_onset_thresholds/
+?? src/notes/roll.py
+?? src/pipelines/finetune_onsets_frames.py
+?? src/pipelines/predict_onsets_frames.py
+?? src/pipelines/score_onsets_frames.py
+?? src/pipelines/tune_onsets_frames_thresholds.py
+?? src/transcribe/onsets_frames_training.py
