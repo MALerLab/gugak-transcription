@@ -127,6 +127,9 @@
 - **duration** — how long something lasts. Score-side ranges and durations count bars by
   default; the code stores quarter-note beats.
 - **clip** — a 30 s listening excerpt. Not an alignment unit.
+- **grace window** — the stretch around a six dragon grace note (its made-up 80 ms + the main
+  note's start, plus margins; `configs/datasets/answer_keys.yaml`). Left out of training loss and
+  scoring alike (`*_masked` scores); the audio stays whole (decided 2026-11-13, exp007).
 
 ## Invariants
 - Reuse the separation repo's frozen song split (`manifests/separation/eval_manifest.parquet`);
