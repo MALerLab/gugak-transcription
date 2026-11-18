@@ -102,6 +102,9 @@
   Other dataset values (song ids, titles, genres, piece names) stay Korean for now.
 - **stem** — one instrument's isolated audio track of one song (the separation dataset's
   per-instrument WAVs).
+- **six dragon audio** vs **solo audio** — the two audio sources, used when comparing them
+  (tuning, timbre, genre). Six dragon audio = the separation dataset's stems that the six dragon
+  MIDI is aligned to. Solo audio = the solo dataset's clips.
 - **mix** — audio of several instruments together. The separation dataset's publisher
   `master` is a mix, but not the sum of its stems (see gotchas).
 - **warping path** — DTW's output: matched (score frame, audio frame) pairs, used as a
