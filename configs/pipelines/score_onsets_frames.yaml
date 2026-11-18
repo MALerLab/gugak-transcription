@@ -2,7 +2,7 @@
 # uses: module recipes merged in (configs/<path>.yaml) · run: this command's own settings
 # overrides: changes to the module recipes for this command
 # src/launch/make_run_config.py turns this into experiments/<exp>/configs/<name>.yaml; the run reads only that.
-uses: [transcribe/onsets_frames, evaluate/transcription, notes/midi, datasets/answer_keys]
+uses: [transcribe/onsets_frames, evaluate/transcription, evaluate/f0, notes/midi, datasets/answer_keys, datasets/solo]
 run:
   artifacts_dir: ???
   predictions_dir: ???            # a predict_onsets_frames run's predictions_dir (items.parquet + .npz)
@@ -12,4 +12,7 @@ run:
   midi_dir: ${run.artifacts_dir}/midi
   note_tables_dir: ${run.artifacts_dir}/note_tables
   scores_table: ${run.artifacts_dir}/tables/scores.parquet
+  tuning_gate_f0_dirs: null       # answer key → stock PESTO f0 dir (<item_id>.npz); null = no tuning-gated scores
+  mark_unreliable_solo_clips: false  # drop_reason column from datasets.solo.unreliable_midi (solo MIDI audit)
+  limit_items_per_instrument: 0   # smoke runs: first N items per answer key × split × instrument; 0 = all
 overrides: {}

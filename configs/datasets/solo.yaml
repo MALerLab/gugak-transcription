@@ -11,3 +11,9 @@ instruments: [daegeum, piri, haegeum, ajaeng, gayageum, geomungo]
 # dev tunes the segmentation parameters; test is scored once with the chosen ones.
 dev_fraction: 0.3
 seed: 42                 # exp002 used 0 (its run config keeps it)
+# Clips whose MIDI looks unreliable against their own audio, left out of solo scoring and training (Jae, exp011).
+# Read from exp010's audit (rows with judge == pitch); clips with no checkable notes (NaN gap) stay in.
+unreliable_midi:
+  audit_table: storage/experiments/exp010_261117_solo_midi_audit/tables/items.parquet
+  max_abs_semitone_gap: 0          # any whole-semitone gap (±1, octaves, other) drops the clip
+  min_agreement_after_gap: 0.5     # on pitch, but written and heard pitch agree on under half the note middles

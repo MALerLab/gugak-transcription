@@ -55,3 +55,34 @@ def pick_solo_clips(config, instruments_config) -> pd.DataFrame:
     clips["midi_path"] = [str(Path(config.midi_dir) / f"{clip_id}.mid") for clip_id in clips["clip_id"]]
     clips["partition"] = [piece_partition(p, config.dev_fraction, config.seed) for p in clips["piece"]]
     return clips.sort_values("clip_id").reset_index(drop=True)
+
+
+def unreliable_solo_clips(config) -> pd.DataFrame:
+    """Clips whose MIDI looks unreliable against their own audio, from the solo MIDI audit (exp010): clip_id + drop_reason.
+
+    Dropped: any whole-semitone gap beyond ``max_abs_semitone_gap`` (``semitone_off``, ``octave_or_more_off``,
+    ``other_gap``), or on pitch but ``agreement_after_gap`` below ``min_agreement_after_gap`` (``low_agreement``).
+    Clips with no checkable notes (NaN gap) are not listed, so they stay in.
+
+    Args:
+        config: the `configs/datasets/solo.yaml` settings (its ``unreliable_midi`` block).
+    """
+    rules = config.unreliable_midi
+    audit = pd.read_parquet(rules.audit_table)
+    audit = audit[audit["judge"] == "pitch"].set_index("clip_id")
+    gap = audit["semitone_gap"].abs()
+    reason = pd.Series(None, index=audit.index, dtype=object)
+    reason[audit["agreement_after_gap"] < rules.min_agreement_after_gap] = "low_agreement"
+    # A gap overrules low agreement: it names what is wrong
+    gap_kind = pd.Series("other_gap", index=audit.index)
+    gap_kind[gap == 1] = "semitone_off"
+    gap_kind[gap >= 12] = "octave_or_more_off"
+    too_far = gap > rules.max_abs_semitone_gap
+    reason[too_far] = gap_kind[too_far]
+    return reason.dropna().rename("drop_reason").reset_index()
+
+
+def drop_unreliable_solo_clips(clips: pd.DataFrame, config) -> pd.DataFrame:
+    """``clips`` (with a ``clip_id`` column) minus the ones ``unreliable_solo_clips`` lists."""
+    unreliable = unreliable_solo_clips(config)
+    return clips[~clips["clip_id"].isin(unreliable["clip_id"])].reset_index(drop=True)

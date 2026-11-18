@@ -3,3 +3,6 @@ onset_tolerance_seconds: 0.05  # MIREX standard
 pitch_tolerance_cents: 50.0    # MIREX standard
 offset_ratio: 0.2              # MIREX standard, for the onset+offset score
 lenient_onset_tolerance_seconds: 0.1  # extra onset-only score: gugak attacks (breathy 대금, bowed swells) are soft
+# Tuning gate (exp011): a recording sitting more than this far from its reference notes (stock PESTO, cents) is
+# also scored with every note moved one semitone back toward the reference's keys; the better score is kept
+tuning_gate_cents: 25.0

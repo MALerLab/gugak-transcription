@@ -122,6 +122,39 @@ def masked_and_unmasked_scores(reference_intervals, reference_pitches, estimate_
     return {**scores, **{f"{name}_masked": value for name, value in masked.items()}}
 
 
+def tuning_gate_shift(tuning_offset_cents: float, config) -> int:
+    """Whole-semitone shift the tuning gate tries on an item's notes: 0 (gate closed), +1 or −1.
+
+    A recording more than ``tuning_gate_cents`` off its reference sits between two keys, so a model can
+    round to the neighbouring one: sharp audio (offset > 0) → notes written one key high → shift −1, and
+    flat audio the other way. Never more than one semitone, whatever the offset.
+    """
+    if not np.isfinite(tuning_offset_cents) or abs(tuning_offset_cents) <= config.tuning_gate_cents:
+        return 0
+    return -int(np.sign(tuning_offset_cents))
+
+
+def tuning_gated_scores(reference_intervals, reference_pitches, estimate_intervals, estimate_pitches,
+                        windows: np.ndarray, tuning_offset_cents: float, scores: dict, config) -> dict:
+    """Tuning-gated onset F1: today's ``scores``, or the notes shifted by ``tuning_gate_shift``, whichever is better.
+
+    The better one is picked on ``onset_f1_masked`` (equal to ``onset_f1`` where there are no windows);
+    a tie keeps today's. Adds ``*_tuning_gated`` copies of the onset scores next to today's, plus
+    ``tuning_shift_tried`` (0 = gate closed), ``tuning_shift_used`` and ``onset_f1_masked_shifted``.
+    """
+    shift = tuning_gate_shift(tuning_offset_cents, config)
+    picked, shifted_f1 = scores, np.nan
+    if shift != 0:
+        shifted = masked_and_unmasked_scores(reference_intervals, reference_pitches, estimate_intervals,
+                                             estimate_pitches + shift, windows, config)
+        shifted_f1 = shifted["onset_f1_masked"]
+        if shifted_f1 > scores["onset_f1_masked"]:
+            picked = shifted
+    names = [f"onset_{kind}{mask}" for kind in ("precision", "recall", "f1") for mask in ("", "_masked")]
+    return {"tuning_shift_tried": shift, "tuning_shift_used": picked is not scores, "onset_f1_masked_shifted": shifted_f1,
+            **{f"{name}_tuning_gated": picked[name] for name in names}}
+
+
 def sigimsae_breakdown(sigimsae_json: str, reference_intervals, reference_pitches,
                        estimate_intervals, estimate_pitches, config) -> list[dict]:
     """Per 시김새 region type, and for notes outside every region: how notes are cut there.

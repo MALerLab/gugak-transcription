@@ -100,6 +100,22 @@ def reference_pitch_offset(reference_midi: np.ndarray, f0_hz: np.ndarray, tolera
             "agreement_after_gap": float((np.abs(deviation[scored] - semitone_gap) < tolerance).sum() / scored.sum())}
 
 
+def recording_tuning_offset(reference_intervals: np.ndarray, reference_pitches: np.ndarray, track: dict, config) -> dict:
+    """How far a recording sits from its reference notes, in cents: ``semitone_gap`` × 100 + ``residual_cents``.
+
+    Positive = the audio sounds sharp of the written notes. NaN when no note middle can be checked.
+
+    Args:
+        reference_intervals: (start, end) in seconds per note.
+        reference_pitches: MIDI number per note.
+        track: ``time`` and ``f0_hz`` arrays from src/features/f0/.
+        config: the `configs/evaluate/f0.yaml` settings.
+    """
+    reference = reference_pitch_frames(reference_intervals, reference_pitches, track["time"], config)
+    offset = reference_pitch_offset(reference, track["f0_hz"], config.pitch_tolerance_cents)
+    return {**offset, "tuning_offset_cents": offset["semitone_gap"] * 100 + offset["residual_cents"]}
+
+
 def f0_scores(reference_intervals: np.ndarray, reference_pitches: np.ndarray, track: dict, config) -> dict:
     """One item's f0 scores against its reference notes.
 
