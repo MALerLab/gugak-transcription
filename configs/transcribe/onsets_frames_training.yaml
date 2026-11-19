@@ -15,6 +15,8 @@ learning_rate_decay_rate: 1.0
 clip_gradient_norm: 3.0     # the repo's default
 # Loss: the repo's three note heads at equal weight; no velocity loss (the six dragon MIDI's velocity is a constant)
 loss_weights: {onset: 1.0, offset: 1.0, frame: 1.0}
+# Moving average of the weights (exp019 on), validated next to the live weights; the better one is kept. null = off
+ema_decay: null
 # Length: validate every N steps, keep the best val score, stop after `patience` validations without a gain
 max_steps: 20000
 validate_every_steps: 500

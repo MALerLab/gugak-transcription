@@ -4,8 +4,9 @@
 windows left out of the loss), solo (the train clips of ``run.solo_split.table``), pseudo (stems labelled by an
 earlier model, ``run.pseudo_labels.table``), or several, mixed by drawing segments in proportion to audio time. Every ``validate_every_steps`` it transcribes the val items of
 ``run.validation_datasets`` and scores onset F1 with the grace-note windows left out (mean of instrument
-means per dataset, then the mean over datasets). Keeps the best-scoring weights, stops after ``patience``
-validations without a gain or at ``max_steps``.
+means per dataset, then the mean over datasets). Keeps the best-scoring weights (with ``ema_decay`` set, the live
+weights and their moving average are both scored, the better one kept), stops after ``patience`` validations
+without a gain or at ``max_steps``.
 
 Writes <weights_dir>/best.pt + last.pt (state dicts) and <tables_dir>/training_log.parquet,
 validation_log.parquet.
@@ -132,33 +133,45 @@ def main(config_path: str) -> None:
     best_score = selection[run.selection_metric]
     validation_rows.append({"step": 0, **selection, **selection_scores(scores, "onset_f1")})
     torch.save(model.state_dict(), weights_dir / "best.pt")
-    best_step, validations_without_gain = 0, 0
+    best_step, best_weights, validations_without_gain = 0, "live", 0
     print(f"step 0 val {run.selection_metric} {best_score:.4f}", flush=True)
+
+    # Optional moving average of the weights (exp019 on): validated next to the live weights, the better one is kept
+    ema_decay = training.get("ema_decay")
+    ema = (torch.optim.swa_utils.AveragedModel(model, multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(ema_decay),
+                                               use_buffers=True) if ema_decay else None)
 
     # 3. Train, validate, keep the best
     started = time.time()
     for step in range(1, training.max_steps + 1):
         losses = training_step(model, log_mel, optimizer, sampler.sample(training.batch_size), training)
         scheduler.step()
+        if ema is not None:
+            ema.update_parameters(model)
         if step % training.log_every_steps == 0:
             training_rows.append({"step": step, "seconds": time.time() - started,
                                   "learning_rate": scheduler.get_last_lr()[0], **losses})
             print(f"step {step} loss {losses['loss']:.4f} ({time.time() - started:.0f} s)", flush=True)
         if step % training.validate_every_steps:
             continue
-        scores = validate(model, log_mel, val_items, val_audios, config)
-        selection = selection_scores(scores, run.selection_metric)
-        score = selection[run.selection_metric]
-        validation_rows.append({"step": step, **selection, **selection_scores(scores, "onset_f1")})
-        if score > best_score:
-            best_score, best_step, validations_without_gain = score, step, 0
-            torch.save(model.state_dict(), weights_dir / "best.pt")
-        else:
-            validations_without_gain += 1
-        per_dataset = ", ".join(f"{name.removeprefix(run.selection_metric + '_')} {value:.4f}"
-                                for name, value in selection.items() if name != run.selection_metric)
-        print(f"step {step} val {run.selection_metric} {score:.4f} [{per_dataset}] (best {best_score:.4f} at {best_step})",
-              flush=True)
+        candidates = {"live": model} if ema is None else {"live": model, "ema": ema.module}
+        gained = False
+        for weights, candidate in candidates.items():
+            for module in candidate.modules():  # the average's copied LSTM weights aren't one contiguous block
+                if isinstance(module, torch.nn.LSTM):
+                    module.flatten_parameters()
+            scores = validate(candidate, log_mel, val_items, val_audios, config)
+            selection = selection_scores(scores, run.selection_metric)
+            score = selection[run.selection_metric]
+            validation_rows.append({"step": step, "weights": weights, **selection, **selection_scores(scores, "onset_f1")})
+            if score > best_score:
+                best_score, best_step, best_weights, gained = score, step, weights, True
+                torch.save(candidate.state_dict(), weights_dir / "best.pt")
+            per_dataset = ", ".join(f"{name.removeprefix(run.selection_metric + '_')} {value:.4f}"
+                                    for name, value in selection.items() if name != run.selection_metric)
+            print(f"step {step} val{'' if weights == 'live' else ' ema'} {run.selection_metric} {score:.4f} [{per_dataset}] "
+                  f"(best {best_score:.4f} at {best_step})", flush=True)
+        validations_without_gain = 0 if gained else validations_without_gain + 1
         pd.DataFrame(training_rows).to_parquet(tables_dir / "training_log.parquet")
         pd.DataFrame(validation_rows).to_parquet(tables_dir / "validation_log.parquet")
         if validations_without_gain >= training.patience:
@@ -167,7 +180,7 @@ def main(config_path: str) -> None:
     torch.save(model.state_dict(), weights_dir / "last.pt")
     pd.DataFrame(training_rows).to_parquet(tables_dir / "training_log.parquet")
     pd.DataFrame(validation_rows).to_parquet(tables_dir / "validation_log.parquet")
-    print(f"done: best val {run.selection_metric} {best_score:.4f} at step {best_step}", flush=True)
+    print(f"done: best val {run.selection_metric} {best_score:.4f} at step {best_step} ({best_weights} weights)", flush=True)
 
 
 if __name__ == "__main__":
