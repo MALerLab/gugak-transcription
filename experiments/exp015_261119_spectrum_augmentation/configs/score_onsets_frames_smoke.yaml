@@ -1,0 +1,101 @@
+# score_onsets_frames run config, built from configs/ by src/launch/make_run_config.py
+transcribe:
+  onsets_frames:
+    checkpoint_path: storage/weights/onsets_frames_maestro/model-500000.pt
+    checkpoint_md5: 5cdfbfc3cd1d1298a2891640baf6fa68
+    finetuned_weights_path: null
+    model_complexity: 48
+    sample_rate: 16000
+    hop_length: 512
+    window_length: 2048
+    mel_bands: 229
+    mel_min_hz: 30
+    mel_max_hz: 8000
+    min_midi: 21
+    max_midi: 108
+    lstm_inference_chunk_frames: 512
+    onset_threshold: 0.5
+    frame_threshold: 0.5
+    onset_time: peak_interp
+  onsets_frames_training:
+    augmentation:
+      enabled: true
+    max_steps: 300
+    validate_every_steps: 100
+evaluate:
+  transcription:
+    onset_tolerance_seconds: 0.05
+    pitch_tolerance_cents: 50.0
+    offset_ratio: 0.2
+    lenient_onset_tolerance_seconds: 0.1
+    tuning_gate_cents: 25.0
+  f0:
+    note_core_fraction:
+    - 0.2
+    - 0.8
+    min_note_seconds: 0.15
+    pitch_tolerance_cents: 50.0
+    shift_semitones:
+    - -1
+    - 0
+    - 1
+notes:
+  midi:
+    score_velocity: 80
+    gm_programs:
+      daegeum: 77
+      piri: 111
+      haegeum: 110
+      ajaeng: 42
+      gayageum: 107
+      geomungo: 106
+    pitch_bend_range_semitones: 12
+    pitch_bend_min_step_cents: 3.0
+datasets:
+  answer_keys:
+    grace_window_seconds_before: 0.05
+    grace_window_seconds_after: 0.18
+  solo:
+    source_manifest: manifests/separation/source_manifest_v2.parquet
+    labels_dir: data/gugak_solo_71470/labels
+    midi_dir: data/gugak_solo_71470/midi
+    genre_codes:
+    - F01
+    - F02
+    - F03
+    instruments:
+    - daegeum
+    - piri
+    - haegeum
+    - ajaeng
+    - gayageum
+    - geomungo
+    dev_fraction: 0.3
+    seed: 42
+    unreliable_midi:
+      audit_table: storage/experiments/exp010_261117_solo_midi_audit/tables/items.parquet
+      max_abs_semitone_gap: 0
+      min_agreement_after_gap: 0.5
+    training_split:
+      test_clips_table: storage/experiments/exp002_261022_strand_b_pilot/tables/solo_clips.parquet
+      test_partition: test
+      genre_codes: null
+      val_fraction: 0.1
+      val_overshoot: 1.5
+      seed: 42
+run:
+  artifacts_dir: storage/experiments/exp015_261119_spectrum_augmentation/smoke
+  predictions_dir: storage/experiments/exp015_261119_spectrum_augmentation/smoke/predictions
+  onset_thresholds_table: storage/experiments/exp015_261119_spectrum_augmentation/smoke/tables/onset_thresholds.parquet
+  six_dragon:
+    aligned_cache_dir: storage/experiments/exp001_261022_strand_a_pilot/cache/aligned
+  midi_dir: storage/experiments/exp015_261119_spectrum_augmentation/smoke/midi
+  note_tables_dir: storage/experiments/exp015_261119_spectrum_augmentation/smoke/note_tables
+  scores_table: storage/experiments/exp015_261119_spectrum_augmentation/smoke/tables/scores.parquet
+  tuning_gate_f0_dirs:
+    six_dragon: storage/experiments/exp006_261031_label_timing/f0/six_dragon
+    solo: storage/experiments/exp010_261117_solo_midi_audit/f0
+  mark_unreliable_solo_clips: true
+  limit_items_per_instrument: 0
+  limit_items: 6
+  limit_items_per_answer_key: 6

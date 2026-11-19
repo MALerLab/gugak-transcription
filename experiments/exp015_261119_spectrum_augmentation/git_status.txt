@@ -1,0 +1,4 @@
+?? experiments/exp014_261119_peak_onset_decoding/
+?? experiments/exp015_261119_spectrum_augmentation/
+?? experiments/exp016_261119_augmentation_semitone_shifts/
+?? externals
