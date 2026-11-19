@@ -6,6 +6,7 @@ onset_label_frames: 1
 offset_label_frames: 1
 # hard = the repo's 0/1 onset frame; triangle = each start split between its two neighbouring frames by distance (exp019 on)
 onset_label_shape: hard
+onset_label_half_width_frames: 1.0   # triangle only: frames from the exact start to where the target reaches 0
 # Batches: the repo's training defaults (8 segments of 327,680 samples = 20.48 s at 16 kHz)
 batch_size: 8
 segment_frames: 640

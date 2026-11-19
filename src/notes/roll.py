@@ -12,12 +12,13 @@ import pandas as pd
 
 def note_table_to_label_rolls(table: pd.DataFrame, num_frames: int, hop_seconds: float, min_pitch: int,
                               num_keys: int, onset_frames: int, offset_frames: int,
-                              onset_shape: str = "hard") -> dict[str, np.ndarray]:
+                              onset_shape: str = "hard", onset_half_width: float = 1.0) -> dict[str, np.ndarray]:
     """Onset, offset and frame rolls of a note table, each ``(num_frames, num_keys)`` uint8.
 
     ``onset_shape``: ``hard`` (the repo's: 1 for ``onset_frames`` frames from the nearest frame) or ``triangle``:
-    the onset roll is float16 and splits each note start between the two frames around it by distance
-    (1 − |frame − exact start| in frames), so the targets carry the start's position between frames.
+    the onset roll is float16, 1 − |frame − exact start| / ``onset_half_width`` (in frames) where positive, so the
+    targets carry the start's position between frames; half-width 1 splits each start between its two neighbouring
+    frames, wider ones also spread it to match how uncertain the label's timing is.
 
     Args:
         table: note table (``pitch``, ``start``, ``duration`` in seconds).
@@ -46,9 +47,10 @@ def note_table_to_label_rolls(table: pd.DataFrame, num_frames: int, hop_seconds:
         if onset_shape == "hard":
             rolls["onset"][start:onset_end, key] = 1
         else:
-            before = int(np.floor(exact_start))
-            for frame, weight in ((before, 1 - (exact_start - before)), (before + 1, exact_start - before)):
-                if 0 <= frame < num_frames:
+            first = int(np.floor(exact_start - onset_half_width)) + 1
+            for frame in range(max(first, 0), min(int(np.ceil(exact_start + onset_half_width)), num_frames)):
+                weight = 1 - abs(frame - exact_start) / onset_half_width
+                if weight > 0:
                     rolls["onset"][frame, key] = max(rolls["onset"][frame, key], weight)
         rolls["offset"][end:min(end + offset_frames, num_frames), key] = 1
     return rolls
