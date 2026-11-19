@@ -15,6 +15,7 @@ run:
   validation_datasets: [six_dragon]  # selection = mean over these of each one's mean of instrument means
   selection_metric: onset_f1_masked  # onset F1 with the grace-note windows left out, mean of instrument means
   validation_onset_threshold: null   # decode val at this onset threshold; null = the recipe's (0.5)
+  validation_batch_frames: 0      # >0: run val in padded batches of up to this many frames (fast); 0 = one item at a time
   six_dragon:
     quality_table: ???            # exp001's alignment_quality_by_song.parquet (usable, split)
     match_table: ???              # exp001's match_table.parquet (stems_with_part)

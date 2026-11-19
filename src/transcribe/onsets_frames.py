@@ -149,7 +149,11 @@ class BiLSTM(nn.Module):
         self.rnn = nn.LSTM(input_features, recurrent_features, batch_first=True, bidirectional=True)
         self.inference_chunk_frames = inference_chunk_frames
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, lengths: torch.Tensor | None = None) -> torch.Tensor:
+        """``lengths`` (batch,): the real length of each padded sequence; the LSTM then runs packed, padding unseen."""
+        if lengths is not None:
+            packed = nn.utils.rnn.pack_padded_sequence(x, lengths.cpu(), batch_first=True, enforce_sorted=False)
+            return nn.utils.rnn.pad_packed_sequence(self.rnn(packed)[0], batch_first=True, total_length=x.shape[1])[0]
         if self.training:
             return self.rnn(x)[0]
         batch_size, sequence_length, _ = x.shape
@@ -195,22 +199,31 @@ class OnsetsAndFrames(nn.Module):
             self.instrument_key_bias = nn.ParameterDict({head: nn.Parameter(zero_embedding(output_features))
                                                          for head in ("onset", "frame")})
 
-    def _conditioned_head(self, stack: nn.Sequential, features: torch.Tensor, instrument: torch.Tensor, film: str | None,
-                          key_bias: str | None, conv_first: bool = True) -> torch.Tensor:
-        """One head's ``nn.Sequential`` run layer by layer, with the instrument's FiLM after its conv stack and its key bias before the sigmoid."""
+    def _head(self, stack: nn.Sequential, x: torch.Tensor, instrument: torch.Tensor | None, film: str | None,
+              key_bias: str | None, lengths: torch.Tensor | None) -> torch.Tensor:
+        """One head's ``nn.Sequential`` run layer by layer: ``lengths`` go to its LSTM, the instrument's FiLM (``film``)
+        follows its conv stack, and the instrument's key bias (``key_bias``) comes before its last layer (the sigmoid)."""
         layers = list(stack)
-        x = layers[0](features)
-        if film is not None and conv_first:
-            x = x * (1 + self.instrument_film[f"{film}_scale"][instrument][:, None, :]) + self.instrument_film[f"{film}_shift"][instrument][:, None, :]
-        for layer in layers[1:-1]:
-            x = layer(x)
-        if key_bias is not None:
-            x = x + self.instrument_key_bias[key_bias][instrument][:, None, :]
-        return layers[-1](x)
+        for index, layer in enumerate(layers):
+            if index == len(layers) - 1 and key_bias is not None:
+                x = x + self.instrument_key_bias[key_bias][instrument][:, None, :]
+            x = layer(x, lengths) if isinstance(layer, BiLSTM) else layer(x)
+            if index == 0 and film is not None:
+                x = x * (1 + self.instrument_film[f"{film}_scale"][instrument][:, None, :]) + self.instrument_film[f"{film}_shift"][instrument][:, None, :]
+        return x
 
-    def forward(self, mel: torch.Tensor, instrument: torch.Tensor | None = None):
-        """Outputs for a batch of log mels; ``instrument`` (batch,) indexes the conditioning instruments (None: unconditioned model)."""
-        if not self.num_instruments:
+    def forward(self, mel: torch.Tensor, instrument: torch.Tensor | None = None, lengths: torch.Tensor | None = None):
+        """Outputs for a batch of log mels.
+
+        Args:
+            mel: (batch, frames, mels).
+            instrument: (batch,) indices into the conditioning instruments; needed by a conditioned model only.
+            lengths: (batch,) real frame counts when ``mel`` holds padded sequences of different lengths (None: all full).
+        """
+        conditioned = bool(self.num_instruments)
+        if conditioned and instrument is None:
+            raise ValueError("this model is instrument-conditioned: pass the instrument index")
+        if not conditioned and lengths is None:  # the repo's forward, as it was
             onset_pred = self.onset_stack(mel)
             offset_pred = self.offset_stack(mel)
             activation_pred = self.frame_stack(mel)
@@ -218,15 +231,49 @@ class OnsetsAndFrames(nn.Module):
             frame_pred = self.combined_stack(combined_pred)
             velocity_pred = self.velocity_stack(mel)
             return onset_pred, offset_pred, activation_pred, frame_pred, velocity_pred
-        if instrument is None:
-            raise ValueError("this model is instrument-conditioned: pass the instrument index")
-        onset_pred = self._conditioned_head(self.onset_stack, mel, instrument, "onset", "onset")
-        offset_pred = self._conditioned_head(self.offset_stack, mel, instrument, "offset", None)
-        activation_pred = self._conditioned_head(self.frame_stack, mel, instrument, "frame", None)
+        name = (lambda head: head) if conditioned else (lambda head: None)
+        onset_pred = self._head(self.onset_stack, mel, instrument, name("onset"), name("onset"), lengths)
+        offset_pred = self._head(self.offset_stack, mel, instrument, name("offset"), None, lengths)
+        activation_pred = self._head(self.frame_stack, mel, instrument, name("frame"), None, lengths)
         combined_pred = torch.cat([onset_pred.detach(), offset_pred.detach(), activation_pred], dim=-1)
-        frame_pred = self._conditioned_head(self.combined_stack, combined_pred, instrument, None, "frame", conv_first=False)
-        velocity_pred = self.velocity_stack(mel)
+        frame_pred = self._head(self.combined_stack, combined_pred, instrument, None, name("frame"), lengths)
+        velocity_pred = self._head(self.velocity_stack, mel, instrument, None, None, lengths)
         return onset_pred, offset_pred, activation_pred, frame_pred, velocity_pred
+
+
+@torch.no_grad()
+def predict_batched(model: OnsetsAndFrames, log_mel: "LogMel", audios: list[np.ndarray], instruments: torch.Tensor | None,
+                    max_batch_frames: int) -> list[dict[str, np.ndarray]]:
+    """The model's onset, frame and velocity outputs ``(frames, keys)`` for many recordings, run in padded batches.
+
+    Recordings are sorted by length and batched up to ``max_batch_frames`` (padded) frames; the LSTMs run packed,
+    so padding never reaches them. Matches one-at-a-time inference except within ≈ 3 frames of each recording's end,
+    where the conv stack's zero padding now sees silence frames instead.
+
+    Args:
+        instruments: (recordings,) conditioning indices, or None for an unconditioned model.
+    """
+    model.eval()
+    device = next(model.parameters()).device
+    mels = [log_mel(torch.from_numpy(np.clip(audio, -1, 1)).to(device)[None, :-1])[0] for audio in audios]
+    silence = float(np.log(1e-5))  # the front end's floor
+    order = sorted(range(len(mels)), key=lambda index: -len(mels[index]))
+    results: list[dict[str, np.ndarray]] = [{} for _ in mels]
+    start = 0
+    while start < len(order):
+        longest = len(mels[order[start]])
+        size = max(1, min(len(order) - start, max_batch_frames // max(longest, 1)))
+        batch = order[start:start + size]
+        lengths = torch.tensor([len(mels[index]) for index in batch])
+        padded = torch.full((len(batch), longest, mels[0].shape[1]), silence, device=device)
+        for row, index in enumerate(batch):
+            padded[row, :len(mels[index])] = mels[index]
+        onset, _, _, frame, velocity = model(padded, None if instruments is None else instruments[batch].to(device), lengths)
+        for row, index in enumerate(batch):
+            results[index] = {name: output[row, :lengths[row]].cpu().numpy()
+                              for name, output in (("onset", onset), ("frame", frame), ("velocity", velocity))}
+        start += size
+    return results
 
 
 class LogMel(nn.Module):

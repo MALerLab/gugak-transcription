@@ -16,6 +16,7 @@ Usage: python -m src.pipelines.finetune_onsets_frames --config experiments/<exp>
 from __future__ import annotations
 
 import argparse
+import multiprocessing
 import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -31,7 +32,7 @@ from src.evaluate.transcription import estimated_notes, masked_and_unmasked_scor
 from src.pipelines.common import (cached_audio_path, item_grace_windows, item_reference_notes, list_training_items,
                                   load_run_config)
 from src.transcribe.onsets_frames import (LogMel, conditioning_instruments, decode_notes, instrument_indices,
-                                          load_pretrained_onsets_frames)
+                                          load_pretrained_onsets_frames, predict_batched)
 from src.transcribe.onsets_frames_training import SegmentSampler, stem_labels, training_step
 
 
@@ -49,27 +50,43 @@ def load_items_audio(items: pd.DataFrame, config) -> list[np.ndarray]:
         return list(tqdm(pool.map(_load_audio_job, jobs), total=len(jobs), desc="audio", mininterval=30))
 
 
+def _score_validation_item(args) -> dict:
+    """One validation item's scores from its model outputs (runs in a worker process)."""
+    item, onset, frame, velocity, transcribe_config, config = args
+    notes = decode_notes(onset, frame, velocity, item["instrument"], transcribe_config)
+    reference = item_reference_notes(item)
+    reference_intervals = np.stack([reference["start"], reference["start"] + reference["duration"].clip(lower=1e-3)], 1)
+    return {"item_id": item["item_id"], "answer_key": item["answer_key"], "instrument": item["instrument"],
+            **masked_and_unmasked_scores(reference_intervals, reference["pitch"].to_numpy(float),
+                                         *estimated_notes(notes), item_grace_windows(item, config),
+                                         config.evaluate.transcription)}
+
+
 @torch.no_grad()
-def validate(model, log_mel, items: pd.DataFrame, audios: list[np.ndarray], config) -> pd.DataFrame:
-    """Transcribe and score every validation stem; one row per stem."""
+def validate(model, log_mel, items: pd.DataFrame, audios: list[np.ndarray], config,
+             pool: ProcessPoolExecutor | None = None) -> pd.DataFrame:
+    """Transcribe and score every validation stem; one row per stem. The model runs here, the scoring in ``pool`` if given."""
     model.eval()
     transcribe_config, device = config.transcribe.onsets_frames, next(model.parameters()).device
     validation_onset_threshold = config.run.get("validation_onset_threshold")
     if validation_onset_threshold is not None:
         transcribe_config = OmegaConf.merge(transcribe_config, {"onset_threshold": float(validation_onset_threshold)})
-    rows = []
-    for item, audio in zip(items.to_dict("records"), audios):
-        mel = log_mel(torch.from_numpy(np.clip(audio, -1, 1)).to(device)[None, :-1])
-        onset, _, _, frame, velocity = model(mel, instrument_indices(transcribe_config, [item["instrument"]], device))
-        notes = decode_notes(onset[0].cpu().numpy(), frame[0].cpu().numpy(), velocity[0].cpu().numpy(),
-                             item["instrument"], transcribe_config)
-        reference = item_reference_notes(item)
-        reference_intervals = np.stack([reference["start"], reference["start"] + reference["duration"].clip(lower=1e-3)], 1)
-        rows.append({"item_id": item["item_id"], "answer_key": item["answer_key"], "instrument": item["instrument"],
-                     **masked_and_unmasked_scores(reference_intervals, reference["pitch"].to_numpy(float),
-                                                  *estimated_notes(notes), item_grace_windows(item, config),
-                                                  config.evaluate.transcription)})
-    return pd.DataFrame(rows)
+    records = items.to_dict("records")
+    batch_frames = config.run.get("validation_batch_frames")
+    if batch_frames:  # padded batches: much faster, same outputs except the last few frames of each item
+        outputs = predict_batched(model, log_mel, audios,
+                                  instrument_indices(transcribe_config, list(items["instrument"]), "cpu"), batch_frames)
+    else:
+        outputs = []
+        for item, audio in zip(records, audios):
+            mel = log_mel(torch.from_numpy(np.clip(audio, -1, 1)).to(device)[None, :-1])
+            onset, _, _, frame, velocity = model(mel, instrument_indices(transcribe_config, [item["instrument"]], device))
+            outputs.append({"onset": onset[0].cpu().numpy(), "frame": frame[0].cpu().numpy(),
+                            "velocity": velocity[0].cpu().numpy()})
+    jobs = [(item, output["onset"], output["frame"], output["velocity"], transcribe_config, config)
+            for item, output in zip(records, outputs)]
+    rows = pool.map(_score_validation_item, jobs, chunksize=4) if pool is not None else map(_score_validation_item, jobs)
+    return pd.DataFrame(list(rows))
 
 
 def instrument_mean(scores: pd.DataFrame, column: str) -> float:
@@ -121,6 +138,8 @@ def main(config_path: str) -> None:
     print(f"items shorter than a segment, padded: {sampler.padded_count}", flush=True)
 
     # 2. Model, optimiser, the zero-shot val score as the starting point
+    # Validation scoring runs in worker processes (spawned: this process holds a CUDA context)
+    pool = ProcessPoolExecutor(run.num_workers, mp_context=multiprocessing.get_context("spawn"))
     model = load_pretrained_onsets_frames(transcribe_config).to(device)
     log_mel = LogMel(transcribe_config).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=training.learning_rate)
@@ -128,7 +147,7 @@ def main(config_path: str) -> None:
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, training.get("learning_rate_decay_steps", training.max_steps),
                                                 training.get("learning_rate_decay_rate", 1.0))
     validation_rows, training_rows = [], []
-    scores = validate(model, log_mel, val_items, val_audios, config)
+    scores = validate(model, log_mel, val_items, val_audios, config, pool)
     selection = selection_scores(scores, run.selection_metric)
     best_score = selection[run.selection_metric]
     validation_rows.append({"step": 0, **selection, **selection_scores(scores, "onset_f1")})
@@ -160,7 +179,7 @@ def main(config_path: str) -> None:
             for module in candidate.modules():  # the average's copied LSTM weights aren't one contiguous block
                 if isinstance(module, torch.nn.LSTM):
                     module.flatten_parameters()
-            scores = validate(candidate, log_mel, val_items, val_audios, config)
+            scores = validate(candidate, log_mel, val_items, val_audios, config, pool)
             selection = selection_scores(scores, run.selection_metric)
             score = selection[run.selection_metric]
             validation_rows.append({"step": step, "weights": weights, **selection, **selection_scores(scores, "onset_f1")})
@@ -180,6 +199,7 @@ def main(config_path: str) -> None:
     torch.save(model.state_dict(), weights_dir / "last.pt")
     pd.DataFrame(training_rows).to_parquet(tables_dir / "training_log.parquet")
     pd.DataFrame(validation_rows).to_parquet(tables_dir / "validation_log.parquet")
+    pool.shutdown()
     print(f"done: best val {run.selection_metric} {best_score:.4f} at step {best_step} ({best_weights} weights)", flush=True)
 
 
