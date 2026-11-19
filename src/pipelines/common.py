@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
-from src.datasets.answer_keys import six_dragon_grace_windows, six_dragon_stem_pairs, solo_clip_pairs
+from src.datasets.answer_keys import six_dragon_grace_windows, six_dragon_stem_pairs, solo_clip_pairs, solo_split_pairs
 from src.notes.midi import midi_to_note_table
 
 
@@ -17,7 +17,11 @@ def load_run_config(config_path: str | Path) -> DictConfig:
 
 
 def list_answer_key_items(config, six_dragon_splits: list[str], with_solo: bool) -> pd.DataFrame:
-    """(audio, reference MIDI) pairs: six dragon stems of the given splits, plus the solo clips if asked."""
+    """(audio, reference MIDI) pairs: six dragon stems of the given splits, plus the solo clips if asked.
+
+    Solo clips: exp002's test clips (``with_solo``, ``run.solo``), and / or the ``run.solo_split.splits`` of a
+    training split table (e.g. its val, for picking thresholds).
+    """
     six_dragon = config.run.six_dragon
     tables = [six_dragon_stem_pairs(six_dragon.quality_table, six_dragon.match_table, six_dragon.midi_dir,
                                     list(six_dragon_splits), config.datasets.separation, config.datasets.instruments)]
@@ -25,6 +29,23 @@ def list_answer_key_items(config, six_dragon_splits: list[str], with_solo: bool)
         solo = config.run.solo
         tables.append(solo_clip_pairs(solo.clips_table, solo.partition, solo.reference_check_table,
                                       solo.max_reference_transposition))
+    solo_split = config.run.get("solo_split")
+    if solo_split and solo_split.get("splits"):
+        tables.append(solo_split_pairs(solo_split.table, list(solo_split.splits)))
+    return pd.concat(tables, ignore_index=True)
+
+
+def list_training_items(config, splits: list[str], datasets: list[str]) -> pd.DataFrame:
+    """Training or validation items: six dragon stems and / or solo clips (``run.solo_split.table``) of the given splits."""
+    tables, six_dragon = [], config.run.six_dragon
+    if "six_dragon" in datasets:
+        tables.append(six_dragon_stem_pairs(six_dragon.quality_table, six_dragon.match_table, six_dragon.midi_dir,
+                                            list(splits), config.datasets.separation, config.datasets.instruments))
+    if "solo" in datasets:
+        tables.append(solo_split_pairs(config.run.solo_split.table, list(splits)))
+    unknown = set(datasets) - {"six_dragon", "solo"}
+    if unknown:
+        raise ValueError(f"unknown training datasets: {sorted(unknown)}")
     return pd.concat(tables, ignore_index=True)
 
 

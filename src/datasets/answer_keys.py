@@ -2,7 +2,7 @@
 
 - six dragon: exp001's per-stem aligned MIDI (MusicXML labels at sounding pitch), one part per
   single stem of the separation dataset, usable songs only
-- solo: the solo dataset's clips (exp002's pick), each against its own MIDI
+- solo: the solo dataset's clips (exp002's pick, or a training split table), each against its own MIDI
 
 One row per scored item: item_id, answer_key, source_id (song or clip), instrument, split,
 audio_path, reference_midi_path, reference_part (the MIDI track to score against; None = all).
@@ -80,4 +80,18 @@ def solo_clip_pairs(clips_table: str, partition: str, reference_check_table: str
     clips = clips[~clips["clip_id"].isin(broken)]
     return pd.DataFrame({"item_id": clips["clip_id"], "answer_key": "solo", "source_id": clips["clip_id"],
                          "instrument": clips["instrument"], "split": partition, "audio_path": clips["clip_path"],
+                         "reference_midi_path": clips["midi_path"], "reference_part": None}).reset_index(drop=True)
+
+
+def solo_split_pairs(split_table: str, splits: list[str]) -> pd.DataFrame:
+    """The solo clips of the given splits of a training split table, minus the ones with a ``drop_reason``.
+
+    Args:
+        split_table: a split_solo_clips table (``split``, ``drop_reason`` per clip; src/datasets/solo.py).
+        splits: split names to keep, e.g. ``[train]``.
+    """
+    clips = pd.read_parquet(split_table)
+    clips = clips[clips["split"].isin(list(splits)) & clips["drop_reason"].isna()]
+    return pd.DataFrame({"item_id": clips["clip_id"], "answer_key": "solo", "source_id": clips["clip_id"],
+                         "instrument": clips["instrument"], "split": clips["split"], "audio_path": clips["clip_path"],
                          "reference_midi_path": clips["midi_path"], "reference_part": None}).reset_index(drop=True)

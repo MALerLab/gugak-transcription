@@ -42,15 +42,33 @@ def stem_labels(notes: pd.DataFrame, windows: np.ndarray, num_samples: int, tran
     return {**rolls, "mask": windows_to_frame_mask(windows, num_frames, hop_seconds)}
 
 
+def pad_to_segment(audio: np.ndarray, labels: dict[str, np.ndarray], segment_frames: int,
+                   hop_length: int) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+    """A stem no longer than a segment, padded with silence to ``segment_frames + 1`` frames; padding masked out of the loss."""
+    num_frames = segment_frames + 1
+    extra = num_frames - len(labels["mask"])
+    padded = {name: np.pad(array, [(0, extra)] + [(0, 0)] * (array.ndim - 1)) for name, array in labels.items()}
+    return np.pad(audio, (0, max(0, num_frames * hop_length - len(audio)))), padded
+
+
 class SegmentSampler:
-    """All training stems held on one device; draws random fixed-length segments, stems weighted by length."""
+    """All training stems held on one device; draws random fixed-length segments, stems weighted by length.
+
+    A stem no longer than a segment (a solo clip) is padded with silence and masked there, then always drawn
+    whole; its weight is its real length, so segments come from each dataset in proportion to its audio time.
+    """
 
     def __init__(self, audios: list[np.ndarray], labels: list[dict[str, np.ndarray]], segment_frames: int,
                  hop_length: int, device: torch.device, seed: int):
-        keep = [i for i, labels_i in enumerate(labels) if len(labels_i["mask"]) > segment_frames]
-        self.audios = [torch.from_numpy(audios[i]).to(device) for i in keep]
-        self.labels = [{name: torch.from_numpy(array).to(device) for name, array in labels[i].items()} for i in keep]
-        frames = np.array([len(labels[i]["mask"]) for i in keep], dtype=float)
+        self.audios, self.labels, frames = [], [], []
+        for audio, labels_i in zip(audios, labels):
+            frames.append(len(labels_i["mask"]))
+            if len(labels_i["mask"]) <= segment_frames:
+                audio, labels_i = pad_to_segment(audio, labels_i, segment_frames, hop_length)
+            self.audios.append(torch.from_numpy(audio).to(device))
+            self.labels.append({name: torch.from_numpy(array).to(device) for name, array in labels_i.items()})
+        frames = np.array(frames, dtype=float)
+        self.padded_count = int((frames <= segment_frames).sum())
         self.stem_weights = frames / frames.sum()
         self.segment_frames, self.hop_length = segment_frames, hop_length
         self.generator = np.random.default_rng(seed)

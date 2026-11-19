@@ -17,3 +17,13 @@ unreliable_midi:
   audit_table: storage/experiments/exp010_261117_solo_midi_audit/tables/items.parquet
   max_abs_semitone_gap: 0          # any whole-semitone gap (±1, octaves, other) drops the clip
   min_agreement_after_gap: 0.5     # on pitch, but written and heard pitch agree on under half the note middles
+# Training split (exp012 on): test = exp002's test clips, unchanged; every other clip of the instruments above,
+# any genre, split by piece into train / val. No clip of a test piece goes into train or val.
+# Unreliable clips (above) keep their split with a drop_reason: training skips them, scoring marks them.
+training_split:
+  test_clips_table: storage/experiments/exp002_261022_strand_b_pilot/tables/solo_clips.parquet
+  test_partition: test
+  genre_codes: null            # every genre
+  val_fraction: 0.1            # per instrument: share of its kept non-test clips that val aims for (whole pieces)
+  val_overshoot: 1.5           # a piece can't push any instrument's val past this × its share
+  seed: 42

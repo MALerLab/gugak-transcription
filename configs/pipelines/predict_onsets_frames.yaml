@@ -7,7 +7,7 @@ uses: [transcribe/onsets_frames, datasets/answer_keys, datasets/separation, data
 run:
   artifacts_dir: ???
   device: cuda                    # pick the GPU with CUDA_VISIBLE_DEVICES at launch
-  limit_items_per_answer_key: 0   # >0: only the first N items of each answer key (smoke test); 0 = all
+  limit_items_per_answer_key: 0   # >0: only the first N items of each answer key × split (smoke test); 0 = all
   with_solo: true                 # also the solo clips (exp002's test partition)
   six_dragon:
     quality_table: ???            # exp001's alignment_quality_by_song.parquet (usable, split)
@@ -19,6 +19,9 @@ run:
     partition: test               # exp002's dev/test split by piece
     reference_check_table: ???    # exp002's scores for that partition (reference_transposition per clip)
     max_reference_transposition: 1  # larger whole-clip gaps = broken reference (octave errors), left out
+  solo_split:
+    table: null                   # a split_solo_clips table
+    splits: []                    # its clips of these splits too, e.g. [val] for tuning thresholds on solo
   audio_cache_dir: ???            # mono 16 kHz .npy per item, shared across runs
   predictions_dir: ${run.artifacts_dir}/predictions
 overrides: {}

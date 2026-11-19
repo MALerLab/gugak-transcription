@@ -11,6 +11,8 @@ run:
   limit_items: 0                  # >0: only the first N train and val stems (smoke test); 0 = all
   train_splits: [train]           # frozen split
   validation_splits: [val]        # picks the best weights; test is scored once, after training
+  train_datasets: [six_dragon]    # six_dragon, solo or both; both = segments drawn in proportion to audio time
+  validation_datasets: [six_dragon]  # selection = mean over these of each one's mean of instrument means
   selection_metric: onset_f1_masked  # onset F1 with the grace-note windows left out, mean of instrument means
   validation_onset_threshold: null   # decode val at this onset threshold; null = the recipe's (0.5)
   six_dragon:
@@ -18,6 +20,8 @@ run:
     match_table: ???              # exp001's match_table.parquet (stems_with_part)
     midi_dir: ???                 # exp001's aligned_midi/per_stem = the six dragon MIDI
     aligned_cache_dir: ???        # exp001's cache/aligned (per-stem note tables with is_grace)
+  solo_split:
+    table: null                   # a split_solo_clips table; needed when solo is trained or validated on
   audio_cache_dir: ???            # mono 16 kHz .npy per item, shared across runs
   weights_dir: ${run.artifacts_dir}/weights
   tables_dir: ${run.artifacts_dir}/tables

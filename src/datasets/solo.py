@@ -1,4 +1,4 @@
-"""Solo dataset (AI Hub 71470): clips with their MIDI and 시김새 labels, picked as strand B's answer key."""
+"""Solo dataset (AI Hub 71470): clips with their MIDI and 시김새 labels, picked as strand B's answer key and split for training."""
 from __future__ import annotations
 
 import hashlib
@@ -6,7 +6,9 @@ import json
 import unicodedata
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+from omegaconf import OmegaConf
 
 from src.datasets.instruments import to_english_names
 
@@ -86,3 +88,57 @@ def drop_unreliable_solo_clips(clips: pd.DataFrame, config) -> pd.DataFrame:
     """``clips`` (with a ``clip_id`` column) minus the ones ``unreliable_solo_clips`` lists."""
     unreliable = unreliable_solo_clips(config)
     return clips[~clips["clip_id"].isin(unreliable["clip_id"])].reset_index(drop=True)
+
+
+def split_solo_clips(config, instruments_config) -> pd.DataFrame:
+    """Every solo clip of the configured instruments, any genre, with a train / val / test split for training.
+
+    - test = the clips of ``training_split.test_clips_table``'s ``test_partition`` (exp002's 588), unchanged;
+    - a non-test clip of a test piece is left out (``drop_reason`` = ``test_piece``, split None);
+    - every other clip goes with its piece (one piece can span several instruments): pieces shuffled with
+      ``seed``, then each one taken into val if one of its instruments is still under ``val_fraction`` of
+      that instrument's kept clips and none goes past ``val_overshoot`` × that share; the rest is train.
+      Filling per instrument keeps val usable for a mean of instrument means (a plain 10 % of pieces left
+      아쟁 with 4 val clips).
+    Clips ``unreliable_solo_clips`` lists keep their split but carry their ``drop_reason``, so readers skip
+    them in training and the test set stays whole (scoring marks them instead).
+
+    Args:
+        config: the `configs/datasets/solo.yaml` settings (its ``training_split`` and ``unreliable_midi`` blocks).
+        instruments_config: the `configs/datasets/instruments.yaml` settings.
+    """
+    rules = config.training_split
+    clips = pick_solo_clips(OmegaConf.merge(config, {"genre_codes": rules.genre_codes}), instruments_config)
+    clips = clips.drop(columns=["partition", "sigimsae"])
+    test_table = pd.read_parquet(rules.test_clips_table)
+    test_ids = set(test_table.loc[test_table["partition"] == rules.test_partition, "clip_id"])
+    missing = test_ids - set(clips["clip_id"])
+    if missing:
+        raise ValueError(f"{len(missing)} test clips are not in the solo pick, e.g. {sorted(missing)[:3]}")
+    is_test = clips["clip_id"].isin(test_ids)
+    test_pieces = set(clips.loc[is_test, "piece"])
+    clips["split"] = pd.Series(None, index=clips.index, dtype=object)
+    clips.loc[is_test, "split"] = "test"
+    reasons = unreliable_solo_clips(config).set_index("clip_id")["drop_reason"]
+    clips["drop_reason"] = clips["clip_id"].map(reasons).astype(object)
+    clips.loc[clips["drop_reason"].isna(), "drop_reason"] = None
+    in_test_piece = ~is_test & clips["piece"].isin(test_pieces)
+    clips.loc[in_test_piece, "drop_reason"] = "test_piece"
+
+    # Pieces in a seeded order; a piece joins val while it helps an under-filled instrument and overfills none
+    pool = clips[~is_test & ~in_test_piece]
+    kept = pool[pool["drop_reason"].isna()]
+    per_piece = kept.groupby(["piece", "instrument"]).size().unstack(fill_value=0)
+    per_piece = per_piece.reindex(sorted(pool["piece"].unique()), fill_value=0)
+    target = rules.val_fraction * per_piece.sum()
+    in_val = pd.Series(0, index=per_piece.columns)
+    val_pieces = set()
+    for piece in np.random.default_rng(rules.seed).permutation(per_piece.index.to_numpy()):
+        counts = per_piece.loc[piece]
+        helps = ((counts > 0) & (in_val < target)).any()
+        overfills = ((counts > 0) & (in_val + counts > rules.val_overshoot * target)).any()
+        if helps and not overfills:
+            val_pieces.add(piece)
+            in_val += counts
+    clips.loc[pool.index, "split"] = np.where(pool["piece"].isin(val_pieces), "val", "train")
+    return clips.reset_index(drop=True)

@@ -25,7 +25,7 @@ def main(config_path: str) -> None:
     run, transcribe_config = config.run, config.transcribe.onsets_frames
     items = list_answer_key_items(config, list(run.six_dragon.splits), with_solo=run.with_solo)
     if run.limit_items_per_answer_key:
-        items = items.groupby("answer_key", group_keys=False).head(run.limit_items_per_answer_key)
+        items = items.groupby(["answer_key", "split"], group_keys=False).head(run.limit_items_per_answer_key)
     print(items.groupby(["answer_key", "split", "instrument"]).size(), flush=True)
     print(f"weights: {transcribe_config.finetuned_weights_path or transcribe_config.checkpoint_path}", flush=True)
     transcriber = OnsetsFramesTranscriber(transcribe_config, run.device)
