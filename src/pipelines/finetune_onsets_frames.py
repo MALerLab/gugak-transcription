@@ -152,7 +152,7 @@ def main(config_path: str) -> None:
     best_score = selection[run.selection_metric]
     validation_rows.append({"step": 0, **selection, **selection_scores(scores, "onset_f1")})
     torch.save(model.state_dict(), weights_dir / "best.pt")
-    best_step, best_weights, validations_without_gain = 0, "live", 0
+    best_step, best_weights, validations_without_gain, best_by_kind = 0, "live", 0, {}
     print(f"step 0 val {run.selection_metric} {best_score:.4f}", flush=True)
 
     # Optional moving average of the weights (exp019 on): validated next to the live weights, the better one is kept
@@ -183,6 +183,9 @@ def main(config_path: str) -> None:
             selection = selection_scores(scores, run.selection_metric)
             score = selection[run.selection_metric]
             validation_rows.append({"step": step, "weights": weights, **selection, **selection_scores(scores, "onset_f1")})
+            if ema is not None and score > best_by_kind.get(weights, -1.0):  # each kind's own best too, for comparisons
+                best_by_kind[weights] = score
+                torch.save(candidate.state_dict(), weights_dir / f"best_{weights}.pt")
             if score > best_score:
                 best_score, best_step, best_weights, gained = score, step, weights, True
                 torch.save(candidate.state_dict(), weights_dir / "best.pt")
