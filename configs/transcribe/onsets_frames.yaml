@@ -24,3 +24,7 @@ lstm_inference_chunk_frames: 512
 # Note decoding thresholds: the repo's transcribe.py defaults, unchanged (zero-shot = no tuning)
 onset_threshold: 0.5
 frame_threshold: 0.5
+# Where a note starts inside the onset head's above-threshold run: edge = its first frame (the repo's),
+# peak = the head's highest frame, peak_interp = that peak refined between frames by a parabola.
+# exp014: peak_interp beats edge by ≈ 0.02 val onset F1 on exp013's outputs (edge starts notes ≈ 10 ms early)
+onset_time: peak_interp

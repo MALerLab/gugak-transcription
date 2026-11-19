@@ -20,3 +20,11 @@ max_steps: 20000
 validate_every_steps: 500
 patience: 6
 log_every_steps: 50
+# Augmentation on the magnitude spectrum, per segment (exp015 on); off = exp007–exp013's training
+augmentation:
+  enabled: false
+  tuning_cents: 30                # pitch moved by a uniform amount within ±this; labels stay on their key
+  semitone_shift_max: 0           # also shift by whole semitones within ±this, labels moved along; 0 = off
+  semitone_shift_probability: 0.5 # share of segments that get a semitone shift (when semitone_shift_max > 0)
+  gain_db: 6.0                    # uniform within ±this
+  tilt_db_per_octave: 3.0         # spectral tilt pivoting at 1 kHz, uniform within ±this

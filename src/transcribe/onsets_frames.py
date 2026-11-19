@@ -200,17 +200,24 @@ class LogMel(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.window_length, self.hop_length = config.window_length, config.hop_length
+        self.window_length, self.hop_length, self.sample_rate = config.window_length, config.hop_length, config.sample_rate
         self.register_buffer("window", torch.hann_window(config.window_length, periodic=True))
         filters = torchaudio.functional.melscale_fbanks(config.window_length // 2 + 1, config.mel_min_hz, config.mel_max_hz,
                                                         config.mel_bands, config.sample_rate, norm="slaney", mel_scale="htk")
         self.register_buffer("mel_filters", filters.T.contiguous())  # (mels, frequency bins)
 
+    def spectrum(self, audio: torch.Tensor) -> torch.Tensor:
+        """(batch, samples) in [-1, 1] → magnitude STFT (batch, frequency bins, frames)."""
+        return torch.stft(audio, self.window_length, self.hop_length, window=self.window, center=True,
+                          pad_mode="reflect", return_complex=True).abs()
+
+    def mel_from_spectrum(self, spectrum: torch.Tensor) -> torch.Tensor:
+        """Magnitude STFT (batch, frequency bins, frames) → log mel (batch, frames, mels)."""
+        return torch.log(torch.clamp(self.mel_filters @ spectrum, min=1e-5)).transpose(-1, -2)
+
     def forward(self, audio: torch.Tensor) -> torch.Tensor:
         """(batch, samples) in [-1, 1] → (batch, frames, mels)."""
-        spectrum = torch.stft(audio, self.window_length, self.hop_length, window=self.window, center=True,
-                              pad_mode="reflect", return_complex=True).abs()
-        return torch.log(torch.clamp(self.mel_filters @ spectrum, min=1e-5)).transpose(-1, -2)
+        return self.mel_from_spectrum(self.spectrum(audio))
 
 
 class OnsetsFramesTranscriber:
@@ -269,27 +276,55 @@ def load_onsets_frames(config) -> OnsetsAndFrames:
     return model
 
 
+def onset_peak_time(onset: np.ndarray, start: int, run_end: int, key: int, interpolate: bool) -> float:
+    """Frame position (fractional if ``interpolate``) of the onset head's peak inside one above-threshold run.
+
+    ``interpolate``: fit a parabola through the peak frame and its two neighbours and take its top,
+    clipped to ±½ frame: the head's 32 ms frames are coarse next to a 50 ms onset tolerance.
+    """
+    peak = start + int(np.argmax(onset[start:run_end, key]))
+    if not interpolate or not 0 < peak < len(onset) - 1:
+        return float(peak)
+    before, at, after = onset[peak - 1, key], onset[peak, key], onset[peak + 1, key]
+    curvature = before - 2 * at + after
+    if curvature >= 0:
+        return float(peak)
+    return peak + float(np.clip(0.5 * (before - after) / curvature, -0.5, 0.5))
+
+
 def decode_notes(onset: np.ndarray, frame: np.ndarray, velocity: np.ndarray, part: str, config) -> pd.DataFrame:
     """The repo's ``extract_notes``: a note starts where the onset head rises above its threshold and
     lasts while the onset or frame head stays above theirs. Velocity = mean over its onset frames.
+
+    ``config.onset_time`` (missing = ``edge``, the repo's) sets where inside the onset head's above-threshold
+    run the note starts: ``edge`` its first frame, ``peak`` the head's highest frame, ``peak_interp`` that
+    peak refined between frames. The note's end is the same in all three.
 
     Args:
         onset, frame, velocity: (frames, keys) model outputs.
         part: written into the ``part`` column.
         config: the `configs/transcribe/onsets_frames.yaml` settings.
     """
+    onset_time = config.get("onset_time", "edge")
+    if onset_time not in ("edge", "peak", "peak_interp"):
+        raise ValueError(f"unknown onset_time {onset_time!r}")
     onsets = onset > config.onset_threshold
     active = onsets | (frame > config.frame_threshold)
     rising = onsets & ~np.vstack([np.zeros((1, onsets.shape[1]), bool), onsets[:-1]])
     seconds_per_frame = config.hop_length / config.sample_rate
     rows = []
     for start, key in zip(*np.nonzero(rising)):
-        end = start
+        run_end = start
+        while run_end < len(onsets) and onsets[run_end, key]:
+            run_end += 1
+        end = run_end
         while end < len(active) and active[end, key]:
             end += 1
         onset_velocities = velocity[start:end, key][onsets[start:end, key]]
+        note_start = (float(start) if onset_time == "edge"
+                      else onset_peak_time(onset, start, run_end, key, interpolate=onset_time == "peak_interp"))
         rows.append({"part": part, "pitch": int(config.min_midi + key),
                      "velocity": int(np.clip(onset_velocities.mean() * 127, 0, 127)) if len(onset_velocities) else 0,
-                     "start": start * seconds_per_frame, "duration": (end - start) * seconds_per_frame})
+                     "start": note_start * seconds_per_frame, "duration": (end - note_start) * seconds_per_frame})
     table = pd.DataFrame(rows, columns=["part", "pitch", "velocity", "start", "duration"])
     return table.sort_values("start", kind="stable").reset_index(drop=True)
