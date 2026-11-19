@@ -61,7 +61,9 @@ class SegmentSampler:
     """
 
     def __init__(self, audios: list[np.ndarray], labels: list[dict[str, np.ndarray]], segment_frames: int,
-                 hop_length: int, device: torch.device, seed: int):
+                 hop_length: int, device: torch.device, seed: int, instruments: list[int] | None = None):
+        # instruments: each item's conditioning index, handed out with its segments (None: unconditioned model)
+        self.instruments = instruments
         self.audios, self.labels, frames = [], [], []
         for audio, labels_i in zip(audios, labels):
             frames.append(len(labels_i["mask"]))
@@ -87,7 +89,10 @@ class SegmentSampler:
             batch["audio"].append(self.audios[stem][sample_start:sample_start + self.segment_frames * self.hop_length])
             for name in ("onset", "offset", "frame", "mask"):
                 batch[name].append(self.labels[stem][name][start:start + self.segment_frames])
-        return {name: torch.stack(values).float() for name, values in batch.items()}
+        batch = {name: torch.stack(values).float() for name, values in batch.items()}
+        if self.instruments is not None:
+            batch["instrument"] = torch.tensor([self.instruments[stem] for stem in stems], device=batch["audio"].device)
+        return batch
 
 
 def masked_loss(predictions: dict[str, torch.Tensor], batch: dict[str, torch.Tensor],
@@ -172,7 +177,7 @@ def training_step(model, log_mel, optimizer, batch: dict[str, torch.Tensor], tra
     if augmentation is not None and augmentation.enabled:
         spectrum, batch = augment(spectrum, batch, log_mel.sample_rate, augmentation)
     mel = log_mel.mel_from_spectrum(spectrum)
-    onset, offset, _, frame, _ = model(mel)
+    onset, offset, _, frame, _ = model(mel, batch.get("instrument"))
     predictions = {"onset": onset, "offset": offset, "frame": frame}
     loss, parts = masked_loss(predictions, batch, dict(training_config.loss_weights))
     optimizer.zero_grad(set_to_none=True)

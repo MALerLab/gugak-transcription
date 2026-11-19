@@ -171,7 +171,8 @@ class BiLSTM(nn.Module):
 
 
 class OnsetsAndFrames(nn.Module):
-    def __init__(self, input_features: int, output_features: int, model_complexity: int, inference_chunk_frames: int):
+    def __init__(self, input_features: int, output_features: int, model_complexity: int, inference_chunk_frames: int,
+                 num_instruments: int = 0):
         super().__init__()
         model_size = model_complexity * 16
         sequence_model = lambda input_size, output_size: BiLSTM(input_size, output_size // 2, inference_chunk_frames)
@@ -184,13 +185,46 @@ class OnsetsAndFrames(nn.Module):
         self.combined_stack = nn.Sequential(sequence_model(output_features * 3, model_size),
                                             nn.Linear(model_size, output_features), nn.Sigmoid())
         self.velocity_stack = nn.Sequential(ConvStack(input_features, model_size), nn.Linear(model_size, output_features))
+        self.num_instruments = num_instruments
+        if num_instruments:
+            # Instrument conditioning, all zero at the start so the model begins as the pretrained one:
+            # FiLM (scale, shift) on each note head's conv features, and a per-key bias on the onset and frame outputs
+            zero_embedding = lambda size: torch.zeros(num_instruments, size)
+            self.instrument_film = nn.ParameterDict({f"{head}_{kind}": nn.Parameter(zero_embedding(model_size))
+                                                     for head in ("onset", "offset", "frame") for kind in ("scale", "shift")})
+            self.instrument_key_bias = nn.ParameterDict({head: nn.Parameter(zero_embedding(output_features))
+                                                         for head in ("onset", "frame")})
 
-    def forward(self, mel: torch.Tensor):
-        onset_pred = self.onset_stack(mel)
-        offset_pred = self.offset_stack(mel)
-        activation_pred = self.frame_stack(mel)
+    def _conditioned_head(self, stack: nn.Sequential, features: torch.Tensor, instrument: torch.Tensor, film: str | None,
+                          key_bias: str | None, conv_first: bool = True) -> torch.Tensor:
+        """One head's ``nn.Sequential`` run layer by layer, with the instrument's FiLM after its conv stack and its key bias before the sigmoid."""
+        layers = list(stack)
+        x = layers[0](features)
+        if film is not None and conv_first:
+            x = x * (1 + self.instrument_film[f"{film}_scale"][instrument][:, None, :]) + self.instrument_film[f"{film}_shift"][instrument][:, None, :]
+        for layer in layers[1:-1]:
+            x = layer(x)
+        if key_bias is not None:
+            x = x + self.instrument_key_bias[key_bias][instrument][:, None, :]
+        return layers[-1](x)
+
+    def forward(self, mel: torch.Tensor, instrument: torch.Tensor | None = None):
+        """Outputs for a batch of log mels; ``instrument`` (batch,) indexes the conditioning instruments (None: unconditioned model)."""
+        if not self.num_instruments:
+            onset_pred = self.onset_stack(mel)
+            offset_pred = self.offset_stack(mel)
+            activation_pred = self.frame_stack(mel)
+            combined_pred = torch.cat([onset_pred.detach(), offset_pred.detach(), activation_pred], dim=-1)
+            frame_pred = self.combined_stack(combined_pred)
+            velocity_pred = self.velocity_stack(mel)
+            return onset_pred, offset_pred, activation_pred, frame_pred, velocity_pred
+        if instrument is None:
+            raise ValueError("this model is instrument-conditioned: pass the instrument index")
+        onset_pred = self._conditioned_head(self.onset_stack, mel, instrument, "onset", "onset")
+        offset_pred = self._conditioned_head(self.offset_stack, mel, instrument, "offset", None)
+        activation_pred = self._conditioned_head(self.frame_stack, mel, instrument, "frame", None)
         combined_pred = torch.cat([onset_pred.detach(), offset_pred.detach(), activation_pred], dim=-1)
-        frame_pred = self.combined_stack(combined_pred)
+        frame_pred = self._conditioned_head(self.combined_stack, combined_pred, instrument, None, "frame", conv_first=False)
         velocity_pred = self.velocity_stack(mel)
         return onset_pred, offset_pred, activation_pred, frame_pred, velocity_pred
 
@@ -232,24 +266,43 @@ class OnsetsFramesTranscriber:
         self.model = load_onsets_frames(config).to(self.device).eval()
 
     @torch.no_grad()
-    def predict(self, audio: np.ndarray) -> dict[str, np.ndarray]:
-        """The model's onset, offset, frame and velocity outputs, each ``(frames, keys)``, for mono audio at ``config.sample_rate``."""
+    def predict(self, audio: np.ndarray, instrument: str | None = None) -> dict[str, np.ndarray]:
+        """The model's onset, offset, frame and velocity outputs, each ``(frames, keys)``, for mono audio at ``config.sample_rate``.
+
+        ``instrument`` (English name) is needed only by an instrument-conditioned model.
+        """
         samples = torch.from_numpy(np.clip(audio, -1.0, 1.0).astype(np.float32)).to(self.device)
         mel = self.log_mel(samples[None, :-1])  # the repo drops the last sample before the STFT
-        onset, offset, _, frame, velocity = self.model(mel)
+        onset, offset, _, frame, velocity = self.model(mel, instrument_indices(self.config, [instrument], self.device))
         return {name: output[0].cpu().numpy() for name, output in
                 (("onset", onset), ("offset", offset), ("frame", frame), ("velocity", velocity))}
 
-    def __call__(self, audio: np.ndarray, part: str) -> pd.DataFrame:
+    def __call__(self, audio: np.ndarray, part: str, instrument: str | None = None) -> pd.DataFrame:
         """Note table of mono audio at ``config.sample_rate`` (columns part, pitch, velocity, start, duration)."""
-        outputs = self.predict(audio)
+        outputs = self.predict(audio, instrument)
         return decode_notes(outputs["onset"], outputs["frame"], outputs["velocity"], part, self.config)
+
+
+def conditioning_instruments(config) -> list[str]:
+    """The instruments an instrument-conditioned model knows, in index order; empty = unconditioned (missing key too)."""
+    return list(config.get("conditioning_instruments") or [])
+
+
+def instrument_indices(config, instruments: list[str | None], device) -> torch.Tensor | None:
+    """The conditioning index of each instrument as a tensor, or None for an unconditioned model."""
+    known = conditioning_instruments(config)
+    if not known:
+        return None
+    missing = [name for name in instruments if name not in known]
+    if missing:
+        raise ValueError(f"instruments {missing} are not among the conditioning instruments {known}")
+    return torch.tensor([known.index(name) for name in instruments], device=device)
 
 
 def build_onsets_frames(config) -> OnsetsAndFrames:
     """The architecture with the recipe's sizes, untrained."""
     return OnsetsAndFrames(config.mel_bands, config.max_midi - config.min_midi + 1, config.model_complexity,
-                           config.lstm_inference_chunk_frames)
+                           config.lstm_inference_chunk_frames, len(conditioning_instruments(config)))
 
 
 def load_pretrained_onsets_frames(config) -> OnsetsAndFrames:
@@ -262,7 +315,11 @@ def load_pretrained_onsets_frames(config) -> OnsetsAndFrames:
     if checkpoint_md5 != config.checkpoint_md5:
         raise RuntimeError(f"{config.checkpoint_path} has md5 {checkpoint_md5}, the recipe pins {config.checkpoint_md5}")
     model = build_onsets_frames(config)
-    model.load_state_dict(read_pickled_weights(config.checkpoint_path), strict=True)
+    # strict on every pretrained weight; only the (zero-initialised) instrument conditioning may be missing
+    missing, unexpected = model.load_state_dict(read_pickled_weights(config.checkpoint_path), strict=False)
+    missing = [key for key in missing if not key.startswith(("instrument_film.", "instrument_key_bias."))]
+    if missing or unexpected:
+        raise RuntimeError(f"pretrained weights don't match the model: missing {missing}, unexpected {unexpected}")
     return model
 
 

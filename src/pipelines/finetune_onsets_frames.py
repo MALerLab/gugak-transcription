@@ -1,8 +1,8 @@
 """Command: fine-tune Onsets and Frames (MAESTRO weights) on six dragon stems and / or solo clips.
 
 ``run.train_datasets`` picks the data: six dragon (the frozen split's train songs, per-stem labels, grace
-windows left out of the loss), solo (the train clips of ``run.solo_split.table``), or both, mixed by drawing
-segments in proportion to audio time. Every ``validate_every_steps`` it transcribes the val items of
+windows left out of the loss), solo (the train clips of ``run.solo_split.table``), pseudo (stems labelled by an
+earlier model, ``run.pseudo_labels.table``), or several, mixed by drawing segments in proportion to audio time. Every ``validate_every_steps`` it transcribes the val items of
 ``run.validation_datasets`` and scores onset F1 with the grace-note windows left out (mean of instrument
 means per dataset, then the mean over datasets). Keeps the best-scoring weights, stops after ``patience``
 validations without a gain or at ``max_steps``.
@@ -29,7 +29,8 @@ from src.audio.io import load_mono_resampled_cached
 from src.evaluate.transcription import estimated_notes, masked_and_unmasked_scores
 from src.pipelines.common import (cached_audio_path, item_grace_windows, item_reference_notes, list_training_items,
                                   load_run_config)
-from src.transcribe.onsets_frames import LogMel, decode_notes, load_pretrained_onsets_frames
+from src.transcribe.onsets_frames import (LogMel, conditioning_instruments, decode_notes, instrument_indices,
+                                          load_pretrained_onsets_frames)
 from src.transcribe.onsets_frames_training import SegmentSampler, stem_labels, training_step
 
 
@@ -58,7 +59,7 @@ def validate(model, log_mel, items: pd.DataFrame, audios: list[np.ndarray], conf
     rows = []
     for item, audio in zip(items.to_dict("records"), audios):
         mel = log_mel(torch.from_numpy(np.clip(audio, -1, 1)).to(device)[None, :-1])
-        onset, _, _, frame, velocity = model(mel)
+        onset, _, _, frame, velocity = model(mel, instrument_indices(transcribe_config, [item["instrument"]], device))
         notes = decode_notes(onset[0].cpu().numpy(), frame[0].cpu().numpy(), velocity[0].cpu().numpy(),
                              item["instrument"], transcribe_config)
         reference = item_reference_notes(item)
@@ -112,8 +113,10 @@ def main(config_path: str) -> None:
     seconds = pd.Series([len(audio) for audio in train_audios]) / transcribe_config.sample_rate
     hours = seconds.groupby(train_items["answer_key"].to_numpy()).sum() / 3600
     print(f"train audio {hours.sum():.2f} h {hours.round(2).to_dict()}, frames masked {masked_share:.3f}", flush=True)
+    known_instruments = conditioning_instruments(transcribe_config)
     sampler = SegmentSampler(train_audios, train_labels, training.segment_frames, transcribe_config.hop_length,
-                             device, training.seed)
+                             device, training.seed,
+                             [known_instruments.index(name) for name in train_items["instrument"]] if known_instruments else None)
     print(f"items shorter than a segment, padded: {sampler.padded_count}", flush=True)
 
     # 2. Model, optimiser, the zero-shot val score as the starting point

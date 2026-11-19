@@ -18,6 +18,11 @@ mel_max_hz: 8000
 min_midi: 21               # piano keys A0..C8 = the 88 outputs
 max_midi: 108
 
+# Instrument conditioning (exp017 on): the instruments the model is told about, in index order; [] = none (the
+# MAESTRO model and exp007–exp016). Conditioned = zero-initialised FiLM on each note head's conv features + a per-key
+# bias on the onset and frame outputs, so training starts from the pretrained model's exact outputs.
+conditioning_instruments: []
+
 # Inference: each LSTM direction runs over this many frames at a time, carrying its state (the repo's default)
 lstm_inference_chunk_frames: 512
 

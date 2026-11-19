@@ -22,6 +22,8 @@ run:
     aligned_cache_dir: ???        # exp001's cache/aligned (per-stem note tables with is_grace)
   solo_split:
     table: null                   # a split_solo_clips table; needed when solo is trained or validated on
+  pseudo_labels:
+    table: null                   # a pseudo_label_stems items table; needed when pseudo is trained on
   audio_cache_dir: ???            # mono 16 kHz .npy per item, shared across runs
   weights_dir: ${run.artifacts_dir}/weights
   tables_dir: ${run.artifacts_dir}/tables

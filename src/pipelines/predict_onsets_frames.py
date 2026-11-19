@@ -33,7 +33,7 @@ def main(config_path: str) -> None:
     rows = []
     for item in tqdm(items.to_dict("records"), desc="predict", mininterval=30):
         audio = load_mono_resampled_cached(item["audio_path"], transcribe_config.sample_rate, cached_audio_path(config, item))
-        outputs = transcriber.predict(audio)
+        outputs = transcriber.predict(audio, item["instrument"])
         out_path = predictions_dir / item["answer_key"] / f"{item['item_id']}.npz"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(out_path, **{name: array.astype(np.float16) for name, array in outputs.items()})
