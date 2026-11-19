@@ -40,7 +40,8 @@ def stem_labels(notes: pd.DataFrame, windows: np.ndarray, num_samples: int, tran
     num_frames = frame_count(num_samples, transcribe_config.hop_length)
     rolls = note_table_to_label_rolls(notes, num_frames, hop_seconds, transcribe_config.min_midi,
                                       transcribe_config.max_midi - transcribe_config.min_midi + 1,
-                                      training_config.onset_label_frames, training_config.offset_label_frames)
+                                      training_config.onset_label_frames, training_config.offset_label_frames,
+                                      training_config.get("onset_label_shape", "hard"))
     return {**rolls, "mask": windows_to_frame_mask(windows, num_frames, hop_seconds)}
 
 
