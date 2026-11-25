@@ -81,10 +81,11 @@
 - `storage/` = link to `~/storage/gugak-transcription/`, made by `setup_worktree.sh`, untracked:
   datasets, soundfonts, experiment artifacts.
 - `experiments/`: `exp<NNN>_<YYMMDD>_<rest>`.
-- `experiments/<exp>/` tracks only `REPORT.md`, git-state files and `configs/` (the run
-  configs each command ran with). Every output (tables,
-  caches, audio, MIDI, logs) lives in `storage/experiments/<exp>/`, reached through the
-  folder's untracked `artifacts` symlink. Tables go in its `tables/`. Never commit artifacts.
+- `experiments/<exp>/` tracks only git-state files and `configs/` (the run configs each
+  command ran with). Every output (report, tables, caches, audio, MIDI, logs) lives in
+  `storage/experiments/<exp>/`, reached through the folder's untracked `artifacts` symlink.
+  The report is `artifacts/REPORT.md`, untracked (since 2026-11-25). Tables go in its
+  `tables/`. Never commit artifacts.
 - The repo is public: audio, MIDI, MusicXML and checkpoints are never committed.
 
 ## Vocabulary (one word per concept, in code and docs)
