@@ -1,0 +1,82 @@
+# predict_onsets_frames run config, built from configs/ by src/launch/make_run_config.py
+transcribe:
+  onsets_frames:
+    checkpoint_path: storage/weights/onsets_frames_maestro/model-500000.pt
+    checkpoint_md5: 5cdfbfc3cd1d1298a2891640baf6fa68
+    finetuned_weights_path: storage/experiments/exp028_261122_stratified_wider_triangle/smoke/weights/best.pt
+    model_complexity: 48
+    sample_rate: 16000
+    hop_length: 512
+    window_length: 2048
+    mel_bands: 229
+    mel_min_hz: 30
+    mel_max_hz: 8000
+    min_midi: 21
+    max_midi: 108
+    conditioning_instruments: []
+    lstm_inference_chunk_frames: 512
+    onset_threshold: 0.5
+    frame_threshold: 0.5
+    onset_time: peak_interp
+  onsets_frames_training:
+    ema_decay: 0.999
+    onset_label_shape: triangle
+    onset_label_half_width_frames: 3.0
+    max_steps: 300
+    validate_every_steps: 100
+datasets:
+  answer_keys:
+    grace_window_seconds_before: 0.05
+    grace_window_seconds_after: 0.18
+  separation:
+    metadata_csv: data/gugak_ensemble_71955/metadata.csv
+    ingest_dir: data/gugak_ensemble_71955/ingest
+    eval_manifest: manifests/separation/eval_manifest.parquet
+    source_manifest: manifests/separation/source_manifest_v2.parquet
+    jeongak_songs:
+      genre_major: 정악
+    pick_stems:
+      genre_major: 민속악
+      genre_subs:
+      - 산조
+      - 대풍류
+      instruments:
+      - daegeum
+      - piri
+      - haegeum
+      - ajaeng
+      - gayageum
+      - geomungo
+  instruments:
+    english_names:
+      대금: daegeum
+      피리: piri
+      해금: haegeum
+      아쟁: ajaeng
+      가야금: gayageum
+      거문고: geomungo
+run:
+  artifacts_dir: storage/experiments/exp028_261122_stratified_wider_triangle/smoke
+  device: cuda
+  limit_items_per_answer_key: 6
+  with_solo: false
+  six_dragon:
+    quality_table: storage/experiments/exp001_261022_strand_a_pilot/tables/alignment_quality_by_song.parquet
+    match_table: storage/experiments/exp001_261022_strand_a_pilot/tables/match_table.parquet
+    midi_dir: storage/experiments/exp001_261022_strand_a_pilot/aligned_midi/per_stem
+    splits:
+    - val
+    - test
+  solo:
+    clips_table: storage/experiments/exp002_261022_strand_b_pilot/tables/solo_clips.parquet
+    partition: test
+    reference_check_table: storage/experiments/exp002_261022_strand_b_pilot/tables/solo_eval/test_stability_clips.parquet
+    max_reference_transposition: 1
+  solo_split:
+    table: storage/experiments/exp026_261122_stratified_solo_split/tables/solo_split.parquet
+    splits:
+    - val
+    - test
+  audio_cache_dir: storage/cache/audio_mono_16k
+  predictions_dir: storage/experiments/exp028_261122_stratified_wider_triangle/smoke/predictions
+  limit_items: 6
