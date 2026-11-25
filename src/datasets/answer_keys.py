@@ -92,6 +92,9 @@ def solo_split_pairs(split_table: str, splits: list[str]) -> pd.DataFrame:
     """
     clips = pd.read_parquet(split_table)
     clips = clips[clips["split"].isin(list(splits)) & clips["drop_reason"].isna()]
+    # genre_family: tables from before the stratified split (exp012) don't carry it
+    genre_family = clips["genre_family"] if "genre_family" in clips else None
     return pd.DataFrame({"item_id": clips["clip_id"], "answer_key": "solo", "source_id": clips["clip_id"],
                          "instrument": clips["instrument"], "split": clips["split"], "audio_path": clips["clip_path"],
-                         "reference_midi_path": clips["midi_path"], "reference_part": None}).reset_index(drop=True)
+                         "reference_midi_path": clips["midi_path"], "reference_part": None,
+                         "genre_family": genre_family}).reset_index(drop=True)
