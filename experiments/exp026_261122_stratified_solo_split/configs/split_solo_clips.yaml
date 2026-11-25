@@ -1,0 +1,36 @@
+# split_solo_clips run config, built from configs/ by src/launch/make_run_config.py
+datasets:
+  solo:
+    source_manifest: manifests/separation/source_manifest_v2.parquet
+    labels_dir: data/gugak_solo_71470/labels
+    midi_dir: data/gugak_solo_71470/midi
+    genre_codes: null
+    instruments:
+    - daegeum
+    - piri
+    - haegeum
+    - ajaeng
+    - gayageum
+    - geomungo
+    dev_fraction: 0.3
+    seed: 42
+    unreliable_midi:
+      audit_table: storage/experiments/exp010_261117_solo_midi_audit/tables/items.parquet
+      max_abs_semitone_gap: 0
+      min_agreement_after_gap: 0.5
+    training_split:
+      test_fraction: 0.1
+      val_fraction: 0.1
+      overshoot: 1.5
+      seed: 42
+  instruments:
+    english_names:
+      대금: daegeum
+      피리: piri
+      해금: haegeum
+      아쟁: ajaeng
+      가야금: gayageum
+      거문고: geomungo
+run:
+  artifacts_dir: storage/experiments/exp026_261122_stratified_solo_split
+  out_table: storage/experiments/exp026_261122_stratified_solo_split/tables/solo_split.parquet

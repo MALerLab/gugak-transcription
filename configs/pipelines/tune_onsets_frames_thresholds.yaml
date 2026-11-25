@@ -8,7 +8,7 @@ run:
   predictions_dir: ???            # a predict_onsets_frames run's predictions_dir (items.parquet + .npz)
   tuning_split: val               # split the thresholds are picked on; never test
   tuning_datasets: [six_dragon]   # six_dragon, solo or both (both: mean over datasets of the instrument's mean)
-  onset_threshold_grid: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  onset_threshold_grid: [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
   selection_metric: onset_f1_masked
   six_dragon:
     aligned_cache_dir: ???        # exp001's cache/aligned (per-stem note tables with is_grace)

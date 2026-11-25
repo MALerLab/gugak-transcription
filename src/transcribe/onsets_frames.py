@@ -149,7 +149,11 @@ class BiLSTM(nn.Module):
         self.rnn = nn.LSTM(input_features, recurrent_features, batch_first=True, bidirectional=True)
         self.inference_chunk_frames = inference_chunk_frames
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, lengths: torch.Tensor | None = None) -> torch.Tensor:
+        """``lengths`` (batch,): the real length of each padded sequence; the LSTM then runs packed, padding unseen."""
+        if lengths is not None:
+            packed = nn.utils.rnn.pack_padded_sequence(x, lengths.cpu(), batch_first=True, enforce_sorted=False)
+            return nn.utils.rnn.pad_packed_sequence(self.rnn(packed)[0], batch_first=True, total_length=x.shape[1])[0]
         if self.training:
             return self.rnn(x)[0]
         batch_size, sequence_length, _ = x.shape
@@ -171,7 +175,8 @@ class BiLSTM(nn.Module):
 
 
 class OnsetsAndFrames(nn.Module):
-    def __init__(self, input_features: int, output_features: int, model_complexity: int, inference_chunk_frames: int):
+    def __init__(self, input_features: int, output_features: int, model_complexity: int, inference_chunk_frames: int,
+                 num_instruments: int = 0):
         super().__init__()
         model_size = model_complexity * 16
         sequence_model = lambda input_size, output_size: BiLSTM(input_size, output_size // 2, inference_chunk_frames)
@@ -184,15 +189,91 @@ class OnsetsAndFrames(nn.Module):
         self.combined_stack = nn.Sequential(sequence_model(output_features * 3, model_size),
                                             nn.Linear(model_size, output_features), nn.Sigmoid())
         self.velocity_stack = nn.Sequential(ConvStack(input_features, model_size), nn.Linear(model_size, output_features))
+        self.num_instruments = num_instruments
+        if num_instruments:
+            # Instrument conditioning, all zero at the start so the model begins as the pretrained one:
+            # FiLM (scale, shift) on each note head's conv features, and a per-key bias on the onset and frame outputs
+            zero_embedding = lambda size: torch.zeros(num_instruments, size)
+            self.instrument_film = nn.ParameterDict({f"{head}_{kind}": nn.Parameter(zero_embedding(model_size))
+                                                     for head in ("onset", "offset", "frame") for kind in ("scale", "shift")})
+            self.instrument_key_bias = nn.ParameterDict({head: nn.Parameter(zero_embedding(output_features))
+                                                         for head in ("onset", "frame")})
 
-    def forward(self, mel: torch.Tensor):
-        onset_pred = self.onset_stack(mel)
-        offset_pred = self.offset_stack(mel)
-        activation_pred = self.frame_stack(mel)
+    def _head(self, stack: nn.Sequential, x: torch.Tensor, instrument: torch.Tensor | None, film: str | None,
+              key_bias: str | None, lengths: torch.Tensor | None) -> torch.Tensor:
+        """One head's ``nn.Sequential`` run layer by layer: ``lengths`` go to its LSTM, the instrument's FiLM (``film``)
+        follows its conv stack, and the instrument's key bias (``key_bias``) comes before its last layer (the sigmoid)."""
+        layers = list(stack)
+        for index, layer in enumerate(layers):
+            if index == len(layers) - 1 and key_bias is not None:
+                x = x + self.instrument_key_bias[key_bias][instrument][:, None, :]
+            x = layer(x, lengths) if isinstance(layer, BiLSTM) else layer(x)
+            if index == 0 and film is not None:
+                x = x * (1 + self.instrument_film[f"{film}_scale"][instrument][:, None, :]) + self.instrument_film[f"{film}_shift"][instrument][:, None, :]
+        return x
+
+    def forward(self, mel: torch.Tensor, instrument: torch.Tensor | None = None, lengths: torch.Tensor | None = None):
+        """Outputs for a batch of log mels.
+
+        Args:
+            mel: (batch, frames, mels).
+            instrument: (batch,) indices into the conditioning instruments; needed by a conditioned model only.
+            lengths: (batch,) real frame counts when ``mel`` holds padded sequences of different lengths (None: all full).
+        """
+        conditioned = bool(self.num_instruments)
+        if conditioned and instrument is None:
+            raise ValueError("this model is instrument-conditioned: pass the instrument index")
+        if not conditioned and lengths is None:  # the repo's forward, as it was
+            onset_pred = self.onset_stack(mel)
+            offset_pred = self.offset_stack(mel)
+            activation_pred = self.frame_stack(mel)
+            combined_pred = torch.cat([onset_pred.detach(), offset_pred.detach(), activation_pred], dim=-1)
+            frame_pred = self.combined_stack(combined_pred)
+            velocity_pred = self.velocity_stack(mel)
+            return onset_pred, offset_pred, activation_pred, frame_pred, velocity_pred
+        name = (lambda head: head) if conditioned else (lambda head: None)
+        onset_pred = self._head(self.onset_stack, mel, instrument, name("onset"), name("onset"), lengths)
+        offset_pred = self._head(self.offset_stack, mel, instrument, name("offset"), None, lengths)
+        activation_pred = self._head(self.frame_stack, mel, instrument, name("frame"), None, lengths)
         combined_pred = torch.cat([onset_pred.detach(), offset_pred.detach(), activation_pred], dim=-1)
-        frame_pred = self.combined_stack(combined_pred)
-        velocity_pred = self.velocity_stack(mel)
+        frame_pred = self._head(self.combined_stack, combined_pred, instrument, None, name("frame"), lengths)
+        velocity_pred = self._head(self.velocity_stack, mel, instrument, None, None, lengths)
         return onset_pred, offset_pred, activation_pred, frame_pred, velocity_pred
+
+
+@torch.no_grad()
+def predict_batched(model: OnsetsAndFrames, log_mel: "LogMel", audios: list[np.ndarray], instruments: torch.Tensor | None,
+                    max_batch_frames: int) -> list[dict[str, np.ndarray]]:
+    """The model's onset, frame and velocity outputs ``(frames, keys)`` for many recordings, run in padded batches.
+
+    Recordings are sorted by length and batched up to ``max_batch_frames`` (padded) frames; the LSTMs run packed,
+    so padding never reaches them. Matches one-at-a-time inference except within ≈ 3 frames of each recording's end,
+    where the conv stack's zero padding now sees silence frames instead.
+
+    Args:
+        instruments: (recordings,) conditioning indices, or None for an unconditioned model.
+    """
+    model.eval()
+    device = next(model.parameters()).device
+    mels = [log_mel(torch.from_numpy(np.clip(audio, -1, 1)).to(device)[None, :-1])[0] for audio in audios]
+    silence = float(np.log(1e-5))  # the front end's floor
+    order = sorted(range(len(mels)), key=lambda index: -len(mels[index]))
+    results: list[dict[str, np.ndarray]] = [{} for _ in mels]
+    start = 0
+    while start < len(order):
+        longest = len(mels[order[start]])
+        size = max(1, min(len(order) - start, max_batch_frames // max(longest, 1)))
+        batch = order[start:start + size]
+        lengths = torch.tensor([len(mels[index]) for index in batch])
+        padded = torch.full((len(batch), longest, mels[0].shape[1]), silence, device=device)
+        for row, index in enumerate(batch):
+            padded[row, :len(mels[index])] = mels[index]
+        onset, _, _, frame, velocity = model(padded, None if instruments is None else instruments[batch].to(device), lengths)
+        for row, index in enumerate(batch):
+            results[index] = {name: output[row, :lengths[row]].cpu().numpy()
+                              for name, output in (("onset", onset), ("frame", frame), ("velocity", velocity))}
+        start += size
+    return results
 
 
 class LogMel(nn.Module):
@@ -200,17 +281,24 @@ class LogMel(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.window_length, self.hop_length = config.window_length, config.hop_length
+        self.window_length, self.hop_length, self.sample_rate = config.window_length, config.hop_length, config.sample_rate
         self.register_buffer("window", torch.hann_window(config.window_length, periodic=True))
         filters = torchaudio.functional.melscale_fbanks(config.window_length // 2 + 1, config.mel_min_hz, config.mel_max_hz,
                                                         config.mel_bands, config.sample_rate, norm="slaney", mel_scale="htk")
         self.register_buffer("mel_filters", filters.T.contiguous())  # (mels, frequency bins)
 
+    def spectrum(self, audio: torch.Tensor) -> torch.Tensor:
+        """(batch, samples) in [-1, 1] → magnitude STFT (batch, frequency bins, frames)."""
+        return torch.stft(audio, self.window_length, self.hop_length, window=self.window, center=True,
+                          pad_mode="reflect", return_complex=True).abs()
+
+    def mel_from_spectrum(self, spectrum: torch.Tensor) -> torch.Tensor:
+        """Magnitude STFT (batch, frequency bins, frames) → log mel (batch, frames, mels)."""
+        return torch.log(torch.clamp(self.mel_filters @ spectrum, min=1e-5)).transpose(-1, -2)
+
     def forward(self, audio: torch.Tensor) -> torch.Tensor:
         """(batch, samples) in [-1, 1] → (batch, frames, mels)."""
-        spectrum = torch.stft(audio, self.window_length, self.hop_length, window=self.window, center=True,
-                              pad_mode="reflect", return_complex=True).abs()
-        return torch.log(torch.clamp(self.mel_filters @ spectrum, min=1e-5)).transpose(-1, -2)
+        return self.mel_from_spectrum(self.spectrum(audio))
 
 
 class OnsetsFramesTranscriber:
@@ -225,24 +313,43 @@ class OnsetsFramesTranscriber:
         self.model = load_onsets_frames(config).to(self.device).eval()
 
     @torch.no_grad()
-    def predict(self, audio: np.ndarray) -> dict[str, np.ndarray]:
-        """The model's onset, offset, frame and velocity outputs, each ``(frames, keys)``, for mono audio at ``config.sample_rate``."""
+    def predict(self, audio: np.ndarray, instrument: str | None = None) -> dict[str, np.ndarray]:
+        """The model's onset, offset, frame and velocity outputs, each ``(frames, keys)``, for mono audio at ``config.sample_rate``.
+
+        ``instrument`` (English name) is needed only by an instrument-conditioned model.
+        """
         samples = torch.from_numpy(np.clip(audio, -1.0, 1.0).astype(np.float32)).to(self.device)
         mel = self.log_mel(samples[None, :-1])  # the repo drops the last sample before the STFT
-        onset, offset, _, frame, velocity = self.model(mel)
+        onset, offset, _, frame, velocity = self.model(mel, instrument_indices(self.config, [instrument], self.device))
         return {name: output[0].cpu().numpy() for name, output in
                 (("onset", onset), ("offset", offset), ("frame", frame), ("velocity", velocity))}
 
-    def __call__(self, audio: np.ndarray, part: str) -> pd.DataFrame:
+    def __call__(self, audio: np.ndarray, part: str, instrument: str | None = None) -> pd.DataFrame:
         """Note table of mono audio at ``config.sample_rate`` (columns part, pitch, velocity, start, duration)."""
-        outputs = self.predict(audio)
+        outputs = self.predict(audio, instrument)
         return decode_notes(outputs["onset"], outputs["frame"], outputs["velocity"], part, self.config)
+
+
+def conditioning_instruments(config) -> list[str]:
+    """The instruments an instrument-conditioned model knows, in index order; empty = unconditioned (missing key too)."""
+    return list(config.get("conditioning_instruments") or [])
+
+
+def instrument_indices(config, instruments: list[str | None], device) -> torch.Tensor | None:
+    """The conditioning index of each instrument as a tensor, or None for an unconditioned model."""
+    known = conditioning_instruments(config)
+    if not known:
+        return None
+    missing = [name for name in instruments if name not in known]
+    if missing:
+        raise ValueError(f"instruments {missing} are not among the conditioning instruments {known}")
+    return torch.tensor([known.index(name) for name in instruments], device=device)
 
 
 def build_onsets_frames(config) -> OnsetsAndFrames:
     """The architecture with the recipe's sizes, untrained."""
     return OnsetsAndFrames(config.mel_bands, config.max_midi - config.min_midi + 1, config.model_complexity,
-                           config.lstm_inference_chunk_frames)
+                           config.lstm_inference_chunk_frames, len(conditioning_instruments(config)))
 
 
 def load_pretrained_onsets_frames(config) -> OnsetsAndFrames:
@@ -255,7 +362,11 @@ def load_pretrained_onsets_frames(config) -> OnsetsAndFrames:
     if checkpoint_md5 != config.checkpoint_md5:
         raise RuntimeError(f"{config.checkpoint_path} has md5 {checkpoint_md5}, the recipe pins {config.checkpoint_md5}")
     model = build_onsets_frames(config)
-    model.load_state_dict(read_pickled_weights(config.checkpoint_path), strict=True)
+    # strict on every pretrained weight; only the (zero-initialised) instrument conditioning may be missing
+    missing, unexpected = model.load_state_dict(read_pickled_weights(config.checkpoint_path), strict=False)
+    missing = [key for key in missing if not key.startswith(("instrument_film.", "instrument_key_bias."))]
+    if missing or unexpected:
+        raise RuntimeError(f"pretrained weights don't match the model: missing {missing}, unexpected {unexpected}")
     return model
 
 
@@ -269,27 +380,55 @@ def load_onsets_frames(config) -> OnsetsAndFrames:
     return model
 
 
+def onset_peak_time(onset: np.ndarray, start: int, run_end: int, key: int, interpolate: bool) -> float:
+    """Frame position (fractional if ``interpolate``) of the onset head's peak inside one above-threshold run.
+
+    ``interpolate``: fit a parabola through the peak frame and its two neighbours and take its top,
+    clipped to ±½ frame: the head's 32 ms frames are coarse next to a 50 ms onset tolerance.
+    """
+    peak = start + int(np.argmax(onset[start:run_end, key]))
+    if not interpolate or not 0 < peak < len(onset) - 1:
+        return float(peak)
+    before, at, after = onset[peak - 1, key], onset[peak, key], onset[peak + 1, key]
+    curvature = before - 2 * at + after
+    if curvature >= 0:
+        return float(peak)
+    return peak + float(np.clip(0.5 * (before - after) / curvature, -0.5, 0.5))
+
+
 def decode_notes(onset: np.ndarray, frame: np.ndarray, velocity: np.ndarray, part: str, config) -> pd.DataFrame:
     """The repo's ``extract_notes``: a note starts where the onset head rises above its threshold and
     lasts while the onset or frame head stays above theirs. Velocity = mean over its onset frames.
+
+    ``config.onset_time`` (missing = ``edge``, the repo's) sets where inside the onset head's above-threshold
+    run the note starts: ``edge`` its first frame, ``peak`` the head's highest frame, ``peak_interp`` that
+    peak refined between frames. The note's end is the same in all three.
 
     Args:
         onset, frame, velocity: (frames, keys) model outputs.
         part: written into the ``part`` column.
         config: the `configs/transcribe/onsets_frames.yaml` settings.
     """
+    onset_time = config.get("onset_time", "edge")
+    if onset_time not in ("edge", "peak", "peak_interp"):
+        raise ValueError(f"unknown onset_time {onset_time!r}")
     onsets = onset > config.onset_threshold
     active = onsets | (frame > config.frame_threshold)
     rising = onsets & ~np.vstack([np.zeros((1, onsets.shape[1]), bool), onsets[:-1]])
     seconds_per_frame = config.hop_length / config.sample_rate
     rows = []
     for start, key in zip(*np.nonzero(rising)):
-        end = start
+        run_end = start
+        while run_end < len(onsets) and onsets[run_end, key]:
+            run_end += 1
+        end = run_end
         while end < len(active) and active[end, key]:
             end += 1
         onset_velocities = velocity[start:end, key][onsets[start:end, key]]
+        note_start = (float(start) if onset_time == "edge"
+                      else onset_peak_time(onset, start, run_end, key, interpolate=onset_time == "peak_interp"))
         rows.append({"part": part, "pitch": int(config.min_midi + key),
                      "velocity": int(np.clip(onset_velocities.mean() * 127, 0, 127)) if len(onset_velocities) else 0,
-                     "start": start * seconds_per_frame, "duration": (end - start) * seconds_per_frame})
+                     "start": note_start * seconds_per_frame, "duration": (end - note_start) * seconds_per_frame})
     table = pd.DataFrame(rows, columns=["part", "pitch", "velocity", "start", "duration"])
     return table.sort_values("start", kind="stable").reset_index(drop=True)

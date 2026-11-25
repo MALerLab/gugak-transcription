@@ -80,6 +80,10 @@ def summarise_scores(scores: pd.DataFrame) -> None:
     if "drop_reason" in scores:
         solo_test = scores[(scores["answer_key"] == "solo") & (scores["split"] == "test")]
         test_sets["solo test, unreliable MIDI dropped"] = solo_test[solo_test["drop_reason"].isna()]
+    if "genre_family" in scores:  # solo test per genre family (stratified split, exp026 on)
+        solo_test = scores[(scores["answer_key"] == "solo") & (scores["split"] == "test")]
+        for family, group in solo_test.groupby("genre_family"):
+            test_sets[f"solo test, {family}"] = group
     for name, group in test_sets.items():
         by_instrument = group.groupby("instrument")[columns].mean()
         print(f"--- {name} ({len(group)} items)\n{by_instrument.round(3)}\nall {by_instrument.mean().round(4).to_dict()}")

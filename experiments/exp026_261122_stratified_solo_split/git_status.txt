@@ -1,0 +1,6 @@
+ M PROJECT.md
+ M configs/datasets/solo.yaml
+ M src/datasets/answer_keys.py
+ M src/datasets/solo.py
+ M src/pipelines/score_onsets_frames.py
+?? experiments/exp026_261122_stratified_solo_split/

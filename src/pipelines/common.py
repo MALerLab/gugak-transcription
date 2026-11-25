@@ -36,14 +36,18 @@ def list_answer_key_items(config, six_dragon_splits: list[str], with_solo: bool)
 
 
 def list_training_items(config, splits: list[str], datasets: list[str]) -> pd.DataFrame:
-    """Training or validation items: six dragon stems and / or solo clips (``run.solo_split.table``) of the given splits."""
+    """Training or validation items of the given splits: six dragon stems, solo clips (``run.solo_split.table``) and / or
+    pseudo-labelled stems (``run.pseudo_labels.table``)."""
     tables, six_dragon = [], config.run.six_dragon
     if "six_dragon" in datasets:
         tables.append(six_dragon_stem_pairs(six_dragon.quality_table, six_dragon.match_table, six_dragon.midi_dir,
                                             list(splits), config.datasets.separation, config.datasets.instruments))
     if "solo" in datasets:
         tables.append(solo_split_pairs(config.run.solo_split.table, list(splits)))
-    unknown = set(datasets) - {"six_dragon", "solo"}
+    if "pseudo" in datasets:  # pseudo-labelled stems (pseudo_label_stems); train split only
+        pseudo = pd.read_parquet(config.run.pseudo_labels.table)
+        tables.append(pseudo[pseudo["split"].isin(list(splits))].drop(columns=["note_count", "duration_seconds"]))
+    unknown = set(datasets) - {"six_dragon", "solo", "pseudo"}
     if unknown:
         raise ValueError(f"unknown training datasets: {sorted(unknown)}")
     return pd.concat(tables, ignore_index=True)

@@ -5,6 +5,8 @@ fixed-length segments, binary cross-entropy on the onset, offset and frame heads
 Two changes for gugak:
 - frames inside a time mask (the six dragon grace-note windows) count for no loss term;
 - no velocity loss: the six dragon MIDI's velocity is a constant (MusicXML has no dynamics).
+Optional augmentation on the magnitude spectrum (``augmentation.enabled``, off when missing): a random
+tuning offset, whole-semitone shifts with the labels moved along, gain and spectral tilt.
 """
 from __future__ import annotations
 
@@ -38,7 +40,9 @@ def stem_labels(notes: pd.DataFrame, windows: np.ndarray, num_samples: int, tran
     num_frames = frame_count(num_samples, transcribe_config.hop_length)
     rolls = note_table_to_label_rolls(notes, num_frames, hop_seconds, transcribe_config.min_midi,
                                       transcribe_config.max_midi - transcribe_config.min_midi + 1,
-                                      training_config.onset_label_frames, training_config.offset_label_frames)
+                                      training_config.onset_label_frames, training_config.offset_label_frames,
+                                      training_config.get("onset_label_shape", "hard"),
+                                      training_config.get("onset_label_half_width_frames", 1.0))
     return {**rolls, "mask": windows_to_frame_mask(windows, num_frames, hop_seconds)}
 
 
@@ -59,7 +63,9 @@ class SegmentSampler:
     """
 
     def __init__(self, audios: list[np.ndarray], labels: list[dict[str, np.ndarray]], segment_frames: int,
-                 hop_length: int, device: torch.device, seed: int):
+                 hop_length: int, device: torch.device, seed: int, instruments: list[int] | None = None):
+        # instruments: each item's conditioning index, handed out with its segments (None: unconditioned model)
+        self.instruments = instruments
         self.audios, self.labels, frames = [], [], []
         for audio, labels_i in zip(audios, labels):
             frames.append(len(labels_i["mask"]))
@@ -85,7 +91,10 @@ class SegmentSampler:
             batch["audio"].append(self.audios[stem][sample_start:sample_start + self.segment_frames * self.hop_length])
             for name in ("onset", "offset", "frame", "mask"):
                 batch[name].append(self.labels[stem][name][start:start + self.segment_frames])
-        return {name: torch.stack(values).float() for name, values in batch.items()}
+        batch = {name: torch.stack(values).float() for name, values in batch.items()}
+        if self.instruments is not None:
+            batch["instrument"] = torch.tensor([self.instruments[stem] for stem in stems], device=batch["audio"].device)
+        return batch
 
 
 def masked_loss(predictions: dict[str, torch.Tensor], batch: dict[str, torch.Tensor],
@@ -102,11 +111,75 @@ def masked_loss(predictions: dict[str, torch.Tensor], batch: dict[str, torch.Ten
     return total, parts
 
 
+def warp_frequency(spectrum: torch.Tensor, factors: torch.Tensor) -> torch.Tensor:
+    """Each example's magnitude spectrum ``(batch, bins, frames)`` stretched along frequency by its factor.
+
+    Bin ``j`` takes the (linearly interpolated) magnitude of bin ``j / factor``: every partial moves to
+    ``factor`` × its frequency, so the pitch moves by ``1200 log2(factor)`` cents while timing stays put.
+    Bins whose source lies past the top bin go silent.
+    """
+    num_bins, num_frames = spectrum.shape[1], spectrum.shape[2]
+    source = torch.arange(num_bins, device=spectrum.device, dtype=spectrum.dtype)[None, :] / factors[:, None]
+    low = source.floor().long()
+    weight = (source - low)[..., None]
+    pick = lambda index: torch.gather(spectrum, 1, index.clamp(0, num_bins - 1)[..., None].expand(-1, -1, num_frames))
+    warped = pick(low) * (1 - weight) + pick(low + 1) * weight
+    return warped * (source <= num_bins - 1)[..., None]
+
+
+def shift_keys(roll: torch.Tensor, shifts: list[int]) -> torch.Tensor:
+    """Label rolls ``(batch, frames, keys)`` moved up by each example's whole number of keys; keys pushed off the end drop."""
+    shifted = torch.zeros_like(roll)
+    for index, shift in enumerate(shifts):
+        if shift > 0:
+            shifted[index, :, shift:] = roll[index, :, :-shift]
+        elif shift < 0:
+            shifted[index, :, :shift] = roll[index, :, -shift:]
+        else:
+            shifted[index] = roll[index]
+    return shifted
+
+
+def augment(spectrum: torch.Tensor, batch: dict[str, torch.Tensor], sample_rate: int,
+            settings) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    """Random per-example augmentation of a magnitude spectrum ``(batch, bins, frames)`` and its labels.
+
+    - tuning: pitch moved by a uniform amount within ±``tuning_cents``; labels unchanged (the note stays on its key)
+    - semitone shift: with ``semitone_shift_probability``, also a whole number of semitones within
+      ±``semitone_shift_max`` (never 0), labels moved by the same number of keys
+    - gain: uniform within ±``gain_db``
+    - tilt: uniform within ±``tilt_db_per_octave``, pivoting at 1 kHz (a crude random EQ)
+    """
+    size, device = spectrum.shape[0], spectrum.device
+    uniform = lambda limit: (torch.rand(size, device=device) * 2 - 1) * limit
+    semitones = [0] * size
+    if settings.semitone_shift_max > 0:
+        # torch's global generator (seeded by the training command), so runs repeat
+        choices = [s for s in range(-settings.semitone_shift_max, settings.semitone_shift_max + 1) if s != 0]
+        picks = torch.randint(len(choices), (size,)).tolist()
+        shifted = (torch.rand(size) < settings.semitone_shift_probability).tolist()
+        semitones = [choices[pick] if on else 0 for pick, on in zip(picks, shifted)]
+    cents = uniform(settings.tuning_cents) + 100 * torch.tensor(semitones, device=device, dtype=spectrum.dtype)
+    spectrum = warp_frequency(spectrum, 2 ** (cents / 1200))
+    num_bins = spectrum.shape[1]
+    frequencies = torch.arange(num_bins, device=device, dtype=spectrum.dtype) * sample_rate / (2 * (num_bins - 1))
+    octaves_from_pivot = torch.log2(frequencies.clamp(min=30.0) / 1000.0)
+    decibels = uniform(settings.gain_db)[:, None] + uniform(settings.tilt_db_per_octave)[:, None] * octaves_from_pivot[None, :]
+    spectrum = spectrum * (10 ** (decibels / 20))[..., None]
+    if any(semitones):
+        batch = {**batch, **{head: shift_keys(batch[head], semitones) for head in LOSS_HEADS}}
+    return spectrum, batch
+
+
 def training_step(model, log_mel, optimizer, batch: dict[str, torch.Tensor], training_config) -> dict[str, float]:
-    """One optimiser step on a batch; returns the loss terms."""
+    """One optimiser step on a batch (augmented first if the recipe asks); returns the loss terms."""
     model.train()
-    mel = log_mel(batch["audio"][:, :-1])  # the repo drops the last sample before the STFT
-    onset, offset, _, frame, _ = model(mel)
+    spectrum = log_mel.spectrum(batch["audio"][:, :-1])  # the repo drops the last sample before the STFT
+    augmentation = training_config.get("augmentation")
+    if augmentation is not None and augmentation.enabled:
+        spectrum, batch = augment(spectrum, batch, log_mel.sample_rate, augmentation)
+    mel = log_mel.mel_from_spectrum(spectrum)
+    onset, offset, _, frame, _ = model(mel, batch.get("instrument"))
     predictions = {"onset": onset, "offset": offset, "frame": frame}
     loss, parts = masked_loss(predictions, batch, dict(training_config.loss_weights))
     optimizer.zero_grad(set_to_none=True)
