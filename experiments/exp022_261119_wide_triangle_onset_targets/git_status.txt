@@ -1,6 +1,0 @@
-?? experiments/exp018_261119_triangle_onset_targets/
-?? experiments/exp019_261119_instrument_conditioning/
-?? experiments/exp020_261119_ema_control/
-?? experiments/exp021_261119_triangle_conditioning/
-?? experiments/exp022_261119_wide_triangle_onset_targets/
-?? experiments/exp023_261119_triangle_conditioning_seed43/

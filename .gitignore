@@ -35,10 +35,9 @@ outputs/
 *.ckpt
 *.pt
 *.pth
-# `checkpoints/` matches directories only; a checkpoints symlink into ~/storage is a file to git
-experiments/**/checkpoints
-# each experiment's artifacts live on storage; the repo folder keeps a symlink
-experiments/**/artifacts
+# Experiments live wholly on storage (configs, git state, report, outputs); the repo keeps a link.
+# No trailing slash: a symlink is a file to git
+/experiments
 
 # --- CSVs are regenerable twins; parquet is what gets tracked ---
 *.csv
@@ -63,9 +62,11 @@ MEMO.md
 
 # --- Claude Code: per-machine settings; .claude/settings.json (shared) stays tracked ---
 .claude/settings.local.json
-# CLAUDE.md is per-checkout and kept out of the public repo; project facts live in PROJECT.md
+# Local docs, kept out of the public repo: live in the main checkout, worktrees link to them.
+# /docs has no trailing slash: in a worktree it's a symlink, a file to git
 /CLAUDE.md
-# todo.md: unfinished jobs across sessions, per checkout like CLAUDE.md
+/PROJECT.md
 /todo.md
+/docs
 
 # NOTE: uv.lock IS committed (reproducible env) — do not ignore it.

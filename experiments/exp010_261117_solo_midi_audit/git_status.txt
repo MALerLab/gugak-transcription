@@ -1,6 +1,0 @@
- M configs/datasets/solo.yaml
- M src/datasets/solo.py
- M src/evaluate/f0.py
-?? configs/pipelines/audit_solo_midi.yaml
-?? experiments/exp010_261117_solo_midi_audit/
-?? src/pipelines/audit_solo_midi.py

@@ -25,18 +25,15 @@ link "$STORAGE/ngc-gugak" data/gugak_solo_71470
 link "$STORAGE/gugak-transcription/jeongganbo-musicxml" data/jeongganbo_musicxml
 # This project's own storage folder: experiment artifacts, soundfonts, datasets
 link "$STORAGE/gugak-transcription" storage
-# Each experiment folder reaches its outputs on storage through an `artifacts` link
-for experiment in experiments/exp*/; do
-  link "$STORAGE/gugak-transcription/experiments/$(basename "$experiment")" "${experiment}artifacts"
-done
+# Experiments live wholly on storage: run configs, git state, report and outputs
+link "$STORAGE/gugak-transcription/experiments" experiments
 # The separation repo's manifests; that repo owns and commits them, read-only here
 link "$SEPARATION_REPO/manifests/parquet" manifests/separation
-# CLAUDE.md is untracked (public repo); every worktree links to the main checkout's copy
-if [ "$PWD" != "$MAIN_CHECKOUT" ]; then link "$MAIN_CHECKOUT/CLAUDE.md" CLAUDE.md; fi
-# todo.md (unfinished jobs across sessions) is untracked too; shared the same way
-if [ "$PWD" != "$MAIN_CHECKOUT" ]; then link "$MAIN_CHECKOUT/todo.md" todo.md; fi
-# externals/ (lab code cloned from private repos, e.g. Custom_PESTO) is untracked; shared the same way
-if [ "$PWD" != "$MAIN_CHECKOUT" ]; then link "$MAIN_CHECKOUT/externals" externals; fi
+# Local docs (CLAUDE.md, PROJECT.md, todo.md, docs/) and externals/ (lab code cloned from private repos,
+# e.g. Custom_PESTO): untracked, kept in the main checkout; every worktree links to its copy
+if [ "$PWD" != "$MAIN_CHECKOUT" ]; then
+  for path in CLAUDE.md PROJECT.md todo.md docs externals; do link "$MAIN_CHECKOUT/$path" "$path"; done
+fi
 
 # 2. Python env (.venv), exactly as uv.lock says
 uv sync --frozen  # --frozen: install the lockfile as-is, never update it

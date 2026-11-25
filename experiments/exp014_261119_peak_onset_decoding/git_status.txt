@@ -1,7 +1,0 @@
- M configs/pipelines/tune_onsets_frames_thresholds.yaml
- M configs/transcribe/onsets_frames.yaml
- M configs/transcribe/onsets_frames_training.yaml
- M src/transcribe/onsets_frames.py
- M src/transcribe/onsets_frames_training.py
-?? experiments/exp014_261119_peak_onset_decoding/
-?? externals

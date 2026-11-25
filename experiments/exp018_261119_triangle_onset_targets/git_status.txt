@@ -1,7 +1,0 @@
-?? experiments/exp014_261119_peak_onset_decoding/
-?? experiments/exp015_261119_spectrum_augmentation/
-?? experiments/exp016_261119_augmentation_semitone_shifts/
-?? experiments/exp017_261119_pseudo_label_self_training/
-?? experiments/exp018_261119_triangle_onset_targets/
-?? experiments/exp019_261119_instrument_conditioning/
-?? externals

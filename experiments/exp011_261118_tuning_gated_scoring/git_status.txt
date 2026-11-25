@@ -1,9 +1,0 @@
- M PROJECT.md
- M configs/datasets/solo.yaml
- M configs/evaluate/transcription.yaml
- M configs/pipelines/score_onsets_frames.yaml
- M src/datasets/solo.py
- M src/evaluate/f0.py
- M src/evaluate/transcription.py
- M src/pipelines/score_onsets_frames.py
-?? experiments/exp011_261118_tuning_gated_scoring/
